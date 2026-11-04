@@ -1,0 +1,7 @@
+# Je normalise les fins de ligne en LF dans le dépôt, quel que soit le poste :
+# mon code se comporte de la même façon sous Windows, en CI (Linux) et dans Docker.
+* text=auto eol=lf
+
+# Les artefacts du modèle sont binaires : je demande à Git de ne jamais les convertir.
+*.joblib binary
+*.pkl binary
