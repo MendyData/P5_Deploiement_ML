@@ -32,3 +32,4 @@ version 1.0.0 de la clôture.
 - Fichier `.env.example` : modèle des variables d'environnement, sans valeur
   secrète ; le fichier `.env` reste ignoré par Git.
 - Licence MIT.
+- README : présentation, technologies, installation, tests et structure du projet.
