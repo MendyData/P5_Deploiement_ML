@@ -1,0 +1,13 @@
+id_employee,age,genre,revenu_mensuel,statut_marital,departement,poste,nombre_experiences_precedentes,annee_experience_totale,annees_dans_l_entreprise,annees_dans_le_poste_actuel,satisfaction_employee_environnement,note_evaluation_precedente,niveau_hierarchique_poste,satisfaction_employee_nature_travail,satisfaction_employee_equipe,satisfaction_employee_equilibre_pro_perso,note_evaluation_actuelle,heure_supplementaires,augementation_salaire_precedente,nombre_participation_pee,nb_formations_suivies,distance_domicile_travail,niveau_education,domaine_etude,frequence_deplacement,annees_depuis_la_derniere_promotion,annes_sous_responsable_actuel,satisfaction_minimale,nouveau_responsable,debut_de_carriere
+1495,24,F,2033,Marié(e),Commercial,Représentant Commercial,1,1,1,0,4,3,1,2,3,3,3,Non,13,1,2,13,2,Infra & Cloud,Aucun,0,0,2,1,1
+613,31,M,11557,Divorcé(e),Commercial,Senior Manager,9,10,5,4,3,2,3,4,3,2,4,Non,21,1,3,7,3,Infra & Cloud,Occasionnel,0,1,2,0,0
+90,36,M,3388,Marié(e),Consulting,Assistant de Direction,0,2,1,0,4,2,1,3,1,2,3,Oui,17,1,0,9,3,Transformation Digitale,Occasionnel,0,0,1,1,1
+1641,40,F,7945,Célibataire,Consulting,Tech Lead,6,18,4,2,3,3,3,4,4,2,3,Oui,15,0,2,16,3,Infra & Cloud,Occasionnel,3,3,2,0,0
+1070,54,F,10686,Marié(e),Commercial,Cadre Commercial,6,13,9,4,3,2,3,3,2,3,3,Non,11,1,4,2,4,Infra & Cloud,Occasionnel,7,0,2,1,0
+269,35,F,4425,Célibataire,Consulting,Consultant,5,10,6,2,2,3,2,2,4,3,3,Non,11,0,5,2,3,Transformation Digitale,Frequent,1,2,2,0,0
+1784,31,F,5468,Marié(e),Commercial,Cadre Commercial,1,13,12,7,1,2,2,4,1,3,3,Non,14,2,3,29,4,Marketing,Occasionnel,5,7,1,0,0
+1552,40,M,4069,Divorcé(e),Consulting,Manager,3,8,2,2,4,3,2,4,3,3,3,Oui,18,0,2,8,2,Infra & Cloud,Aucun,2,2,3,0,0
+58,41,F,19545,Marié(e),Consulting,Directeur Technique,1,23,22,15,2,3,5,3,4,3,3,Non,12,0,0,12,3,Entrepreunariat,Occasionnel,15,8,2,0,0
+1735,23,F,3295,Célibataire,Consulting,Consultant,1,3,3,2,3,3,1,2,3,1,3,Non,13,0,3,4,1,Transformation Digitale,Occasionnel,1,2,1,0,0
+1794,37,M,4071,Divorcé(e),Ressources Humaines,Ressources Humaines,2,19,10,0,3,3,2,2,3,2,3,Non,13,0,4,8,2,Autre,Occasionnel,4,7,2,0,0
+424,31,M,6410,Marié(e),Ressources Humaines,Ressources Humaines,3,9,2,2,1,2,2,1,4,3,3,Non,12,0,1,2,3,Ressources Humaines,Occasionnel,1,0,1,1,0
