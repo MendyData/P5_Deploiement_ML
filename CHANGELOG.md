@@ -7,6 +7,8 @@ version 1.0.0 de la clôture.
 
 ## [Non publié]
 
+## [0.1.0] - 2026-11-12
+
 ### Ajouté
 
 - Pipeline d'inférence scikit-learn complet, des 26 variables d'un collaborateur
@@ -27,3 +29,7 @@ version 1.0.0 de la clôture.
 - Outils de qualité : Ruff avec des règles étendues, Pytest et pytest-cov.
 - Structure du projet reprise du modèle NewProject_Template, Python 3.11
   épinglé, fins de ligne LF et environnement géré par uv.
+- Fichier `.env.example` : modèle des variables d'environnement, sans valeur
+  secrète ; le fichier `.env` reste ignoré par Git.
+- Licence MIT.
+- README : présentation, technologies, installation, tests et structure du projet.
