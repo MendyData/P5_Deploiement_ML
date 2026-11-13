@@ -89,8 +89,10 @@ target/
 # Exclude virtual environment
 .venv/
 
-# Exclude trained models
-/models/
+Training/
 
-# exclude data from source control by default
-# /data/
+# Données : jamais suivies par Git, seuls les .gitkeep gardent l'arborescence.
+# L'artefact du modèle et ses métadonnées (models/) sont, eux, suivis.
+/data/**
+!/data/**/
+!/data/**/.gitkeep
