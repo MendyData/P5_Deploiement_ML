@@ -48,3 +48,6 @@ jobs:
 
       - name: Exécuter les tests
         run: uv run pytest -m "not lent" --cov=src
+
+      - name: Vérifier la construction du paquet
+        run: uv build
