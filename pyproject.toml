@@ -1,0 +1,92 @@
+# Je déclare ici mon projet : son nom, sa version, la version de Python
+# et, au fil des étapes, ses dépendances (que j'ajoute avec « uv add »)
+# ainsi que la configuration de mes outils.
+
+[project]
+name = "p5-deploiement-ml"
+version = "0.1.0"
+description = "API de prédiction du départ des employés (POC Futurisys)"
+readme = "README.md"
+authors = [{ name = "Angèle Gomis Mendy" }]
+# Je reste sur Python 3.11 : c'est la version avec laquelle le modèle du P4
+# a été entraîné, je garde donc exactement le même environnement.
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "joblib==1.6.0",
+    "numpy==2.4.6",
+    "pandas==3.0.6",
+    "scikit-learn==1.9.1",
+    "scipy==1.17.1",
+]
+
+# J'installe mon code comme un paquet : « from src import config » fonctionne
+# depuis l'API, les scripts et les tests, sans toucher au PYTHONPATH.
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# Mon paquet s'appelle src, comme dans mon modèle de projet et au P4.
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+
+# Ruff vérifie et formate mon code, avec les mêmes règles sur mon poste, dans les hooks et en CI.
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+# E et W : style PEP 8 ; F : erreurs (import inutilisé, nom inconnu) ;
+# I : ordre des imports ; B : pièges courants ; UP : syntaxe Python moderne ;
+# C90 : complexité cyclomatique ; SIM et RET : simplifications possibles ;
+# PL : règles de Pylint (trop de branches ou d'arguments, valeurs magiques) ;
+# N : nommage ; PTH : pathlib ; T20 : pas de print ; ERA : pas de code commenté ;
+# D et ANN : docstrings et annotations obligatoires ; PT : style pytest ;
+# RUF : règles propres à Ruff.
+select = [
+    "E", "W", "F", "I", "B", "UP",
+    "C90", "SIM", "RET", "PL", "N", "PTH", "T20", "ERA", "D", "ANN", "PT", "RUF",
+]
+# X garde sa majuscule, comme dans l'API de scikit-learn (fit(X, y)) ; mes exceptions
+# portent un nom français (ArtefactInvalide), sans le suffixe anglais Error.
+ignore = ["N803", "N806", "N818"]
+
+[tool.ruff.lint.mccabe]
+# Au-delà de 5 chemins possibles, je découpe la fonction.
+max-complexity = 5
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+# Le nom d'un test décrit le comportement attendu, et ses valeurs attendues
+# sont écrites en clair : ni docstring, ni annotation, ni constante imposée.
+"tests/**" = ["D", "ANN", "PLR2004"]
+
+# Pytest cherche mes tests dans tests/ et importe le paquet installé, comme en production.
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--import-mode=importlib", "--strict-markers"]
+# Les tests lents réentraînent le modèle ou lisent les données complètes, absentes
+# d'un clone : je les écarte avec -m "not lent" pour un retour rapide, comme en CI.
+markers = ["lent: réentraînement ou données complètes, absentes d'un clone propre"]
+# Un artefact rechargé avec une autre version de scikit-learn ne provoque qu'un
+# avertissement : j'en fais une erreur, pour qu'aucun test ne passe avec un modèle
+# chargé dans un environnement différent de celui de l'entraînement.
+filterwarnings = ["error::sklearn.exceptions.InconsistentVersionWarning"]
+
+# La couverture mesure le code de mon paquet src, branches des if comprises.
+[tool.coverage.run]
+source = ["src"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.17.4",
+]
