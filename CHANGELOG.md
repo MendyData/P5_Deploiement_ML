@@ -7,6 +7,26 @@ version 1.0.0 de la clôture.
 
 ## [Non publié]
 
+## [0.2.0] - 2026-11-13
+
+### Ajouté
+
+- Paramètres par environnement (`src/parametres.py`) : `APP_ENV` (development,
+  test, production) et `LOG_LEVEL`, lus dans l'environnement ou le fichier `.env`
+  et validés par pydantic-settings.
+- Intégration continue avec GitHub Actions (`.github/workflows/ci.yml`) : à chaque
+  push, installation par `uv sync --locked`, contrôles Ruff et tests avec
+  couverture.
+- Image Docker (`Dockerfile`, `.dockerignore`) : Python 3.11 slim, dépendances
+  figées installées par uv, utilisateur non root.
+- Lancement local avec Docker Compose (`docker-compose.yml`).
+- Script `scripts/verifier_modele.py` : test de fumée qui charge le modèle dans
+  l'environnement courant.
+- Workflow de déploiement (`.github/workflows/deploiement.yml`) : image construite
+  et test de fumée à chaque push sur `staging` (environnement de test) et à chaque
+  tag (environnement de production).
+- README : environnements, CI/CD, déploiement local et badge de la CI.
+
 ## [0.1.0] - 2026-11-12
 
 ### Ajouté

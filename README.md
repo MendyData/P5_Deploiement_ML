@@ -1,5 +1,6 @@
 # P5 : déployer le modèle de départ des collaborateurs
 
+[![CI](https://github.com/MendyData/P5_Deploiement_ML/actions/workflows/ci.yml/badge.svg)](https://github.com/MendyData/P5_Deploiement_ML/actions/workflows/ci.yml)
 ![Python 3.11](https://img.shields.io/badge/python-3.11-blue)
 ![Licence MIT](https://img.shields.io/badge/licence-MIT-green)
 
@@ -15,9 +16,12 @@ et un déploiement automatisés.
 4. [Prérequis](#prérequis)
 5. [Installation](#installation)
 6. [Tests et qualité du code](#tests-et-qualité-du-code)
-7. [Structure du projet](#structure-du-projet)
-8. [Organisation du dépôt](#organisation-du-dépôt)
-9. [Licence](#licence)
+7. [Environnements](#environnements)
+8. [Intégration et déploiement continus](#intégration-et-déploiement-continus)
+9. [Déploiement local](#déploiement-local)
+10. [Structure du projet](#structure-du-projet)
+11. [Organisation du dépôt](#organisation-du-dépôt)
+12. [Licence](#licence)
 
 ## À propos du projet
 
@@ -39,11 +43,12 @@ Dans ce dépôt, je le mets en production :
 | Brique | État |
 | --- | --- |
 | Pipeline d'inférence et prédicteur | En place |
-| Tests du modèle (76 tests, couverture de 100 % sur `src`) | En place |
-| Pipeline CI/CD (GitHub Actions) | À venir |
+| Paramètres par environnement | En place |
+| Tests (85 tests, couverture de 100 % sur `src`) | En place |
+| Pipeline CI/CD (GitHub Actions) | En place |
+| Image Docker et lancement avec Docker Compose | En place |
 | API FastAPI | À venir |
 | Base PostgreSQL | À venir |
-| Déploiement Docker Compose | À venir |
 
 ## Technologies
 
@@ -54,9 +59,12 @@ Dans ce dépôt, je le mets en production :
 | pandas | 3.0.6 | Manipulation des données |
 | numpy | 2.4.6 | Calcul numérique |
 | joblib | 1.6.0 | Sauvegarde et chargement du modèle |
+| pydantic-settings | 2.16 | Paramètres lus dans l'environnement et validés |
 | uv | 0.12 ou plus | Environnement et dépendances |
 | Pytest et pytest-cov | 9.2 et 7.1 | Tests et couverture |
 | Ruff | 0.17 | Vérification et format du code |
+| GitHub Actions | | Intégration et déploiement continus |
+| Docker et Docker Compose | Docker Desktop | Image de l'application et lancement local |
 
 Les versions exactes de toutes les dépendances, y compris indirectes, sont figées
 dans `uv.lock`. Ce fichier et `pyproject.toml` remplacent un `requirements.txt`.
@@ -65,6 +73,7 @@ dans `uv.lock`. Ce fichier et `pyproject.toml` remplacent un `requirements.txt`.
 
 - Git
 - [uv](https://docs.astral.sh/uv/) : il installe lui-même Python 3.11 si besoin
+- [Docker Desktop](https://docs.docker.com/desktop/), pour le déploiement local
 
 ## Installation
 
@@ -95,23 +104,69 @@ uv run ruff format --check .
 - Les tests de non-régression vérifient que le pipeline redonne les scores du
   projet 4 sur les 294 collaborateurs du jeu de test.
 
+## Environnements
+
+La variable `APP_ENV` indique où l'application tourne. Elle est lue et validée au
+démarrage par `src/parametres.py` : une valeur inconnue arrête le démarrage.
+
+| Environnement | `APP_ENV` | Où | D'où viennent les réglages |
+| --- | --- | --- | --- |
+| Développement | `development` | Mon poste | Fichier `.env`, ignoré par Git |
+| Test | `test` | CI et branche `staging` | Environnement GitHub `test` |
+| Production | `production` | Version taguée `vX.Y.Z` | Environnement GitHub `production` |
+
+Aucun réglage sensible n'est écrit dans le code ni dans les workflows : les
+variables et les secrets de test et de production sont déclarés dans GitHub
+(Settings, Environments).
+
+## Intégration et déploiement continus
+
+Deux workflows GitHub Actions, dans `.github/workflows/` :
+
+| Workflow | Déclencheur | Ce qu'il fait |
+| --- | --- | --- |
+| `ci.yml` | Chaque push, sur toutes les branches | `uv sync --locked`, contrôles Ruff, tests avec couverture |
+| `deploiement.yml` | Push sur `staging`, tag `vX.Y.Z` | Construction de l'image Docker, puis test de fumée |
+
+- Je ne fusionne une branche dans `main` que si la CI est verte.
+- Le test de fumée lance le conteneur : il doit charger le modèle et s'arrêter
+  sans erreur.
+
+## Déploiement local
+
+```bash
+docker compose up --build
+```
+
+- Docker construit l'image en suivant le `Dockerfile` : Python 3.11, dépendances
+  figées de `uv.lock`, code, modèle, utilisateur sans droits d'administration.
+- Le conteneur lit `APP_ENV` et `LOG_LEVEL` dans le fichier `.env`, vérifie puis
+  charge le modèle, et affiche sa version et son seuil de décision.
+- L'installation est entièrement automatisée : aucune commande à lancer dans le
+  conteneur.
+
 ## Structure du projet
 
 ```text
 P5_Deploiement_ML/
+├── .github/workflows/     Workflows GitHub Actions : CI et déploiement
 ├── data/                  Données (non versionnées)
 ├── models/                Modèle sauvegardé, métadonnées et découpage des données
 ├── notebooks/             Explorations
-├── scripts/               Entraînement du pipeline et génération des références
+├── scripts/               Entraînement, références du P4, vérification du modèle
 ├── src/
 │   ├── config.py          Colonnes, modalités et chemins du projet
+│   ├── parametres.py      Paramètres par environnement (APP_ENV, LOG_LEVEL)
 │   └── modele/            Pipeline, features métier, entraînement, prédicteur
 ├── tests/
 │   ├── fixtures/          Données de référence versionnées
 │   ├── fonctionnels/      Non-régression et prédicteur
-│   └── unitaires/         Configuration, features, pipeline, entraînement
+│   └── unitaires/         Configuration, paramètres, features, pipeline, entraînement
+├── .dockerignore          Fichiers laissés hors de l'image
 ├── .env.example           Modèle des variables d'environnement
 ├── CHANGELOG.md           Journal des changements, version par version
+├── Dockerfile             Recette de l'image de l'application
+├── docker-compose.yml     Lancement local
 ├── pyproject.toml         Projet, dépendances et réglages des outils
 └── uv.lock                Versions figées de toutes les dépendances
 ```
@@ -121,7 +176,7 @@ P5_Deploiement_ML/
 - Branches permanentes : `main` (développement), `staging` (test) et `production`
   (versions livrées).
 - Une branche `feature/<nom>` par fonctionnalité, fusionnée dans `main` avec un
-  commit de fusion.
+  commit de fusion, une fois la CI verte.
 - Messages de commit au format conventionnel, en français : `feat`, `fix`, `test`,
   `docs`, `refactor`, `ci`, `build`, `chore`.
 - Une version par étape, taguée `vX.Y.Z` sur `production` et décrite dans
