@@ -1,0 +1,23 @@
+# Je liste ce que Docker laisse de côté pendant la construction de l'image :
+# elle reste légère et aucun secret n'y entre.
+
+# Réglages et secrets de mon poste
+.env
+
+# Git, CI et fichiers produits par mes outils
+.git
+.github
+.venv
+.ruff_cache
+.pytest_cache
+.coverage
+htmlcov
+**/__pycache__
+
+# Dossiers inutiles à l'exécution
+data
+notebooks
+references
+reports
+tests
+Training
