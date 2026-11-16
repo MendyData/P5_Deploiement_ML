@@ -4,7 +4,7 @@
 
 [project]
 name = "p5-deploiement-ml"
-version = "0.1.0"
+version = "0.2.0"
 description = "API de prédiction du départ des employés (POC Futurisys)"
 readme = "README.md"
 authors = [{ name = "Angèle Gomis Mendy" }]
@@ -15,6 +15,7 @@ dependencies = [
     "joblib==1.6.0",
     "numpy==2.4.6",
     "pandas==3.0.6",
+    "pydantic-settings>=2.16.3",
     "scikit-learn==1.9.1",
     "scipy==1.17.1",
 ]
