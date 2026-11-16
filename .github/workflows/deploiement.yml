@@ -1,0 +1,37 @@
+# Déploiement : je construis l'image Docker, puis je vérifie qu'elle démarre.
+# - un push sur la branche staging utilise l'environnement GitHub « test » ;
+# - un tag vX.Y.Z, posé sur production, utilise l'environnement « production ».
+name: Déploiement
+
+on:
+  push:
+    branches: [staging]
+    tags: ["v*"]
+
+# Je ne donne au workflow que le droit de lire le dépôt.
+permissions:
+  contents: read
+
+jobs:
+  image:
+    name: Image Docker et test de fumée
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Je choisis l'environnement GitHub : « production » pour un tag, « test » sinon.
+    # Ses variables et ses secrets sont déclarés dans Settings, Environments.
+    environment: ${{ github.ref_type == 'tag' && 'production' || 'test' }}
+    env:
+      # Nom de l'image : p5-deploiement-ml:staging ou p5-deploiement-ml:v0.2.0.
+      IMAGE: p5-deploiement-ml:${{ github.ref_name }}
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v7
+
+      # Docker suit le Dockerfile : l'installation est automatisée de bout en bout.
+      - name: Construire l'image
+        run: docker build --tag "$IMAGE" .
+
+      # Test de fumée : le conteneur démarre, charge le modèle et s'arrête sans
+      # erreur. APP_ENV vient de l'environnement GitHub, jamais du code.
+      - name: Vérifier que le conteneur démarre
+        run: docker run --rm --env APP_ENV="${{ vars.APP_ENV }}" "$IMAGE"
