@@ -27,7 +27,7 @@ version 1.0.0 de la clôture.
   tag (environnement de production).
 - README : environnements, CI/CD, déploiement local et badge de la CI.
 
-## [0.1.0] - 2026-11-16
+## [0.1.0] - 2026-11-12
 
 ### Ajouté
 
