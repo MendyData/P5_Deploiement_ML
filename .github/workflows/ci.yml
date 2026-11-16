@@ -1,0 +1,57 @@
+
+name: CI - Qualité et tests
+
+on:
+  push:
+    # Vérifie chaque push sur une branche, quel que soit son nom.
+    branches: ["**"]
+  workflow_dispatch:
+
+# Le workflow ne peut que lire le dépôt ; il n'a pas besoin d'écrire de contenu.
+permissions:
+  contents: read
+
+# Si un nouveau push arrive sur la même branche, les vérifications précédentes,
+# devenues obsolètes, sont annulées.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality-and-tests:
+    name: Qualité et tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      # La version de Python est déduite des contraintes du pyproject.toml.
+      - name: Installer uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Installer Python
+        run: uv python install
+
+      # --locked garantit que l'environnement correspond exactement à uv.lock.
+      # --all-groups inclut notamment les dépendances de développement (Ruff, pytest).
+      - name: Installer les dépendances
+        run: uv sync --locked --all-groups
+
+      - name: Vérifier Ruff
+        run: uv run ruff check .
+
+      - name: Vérifier le formatage
+        run: uv run ruff format --check .
+
+      # Les tests « lent » sont exclus car ils dépendent de données non versionnées
+      # ou réentraînent le modèle.
+      - name: Exécuter les tests
+        run: uv run pytest -m "not lent" --cov=src
+
+      # Vérifie aussi que le projet peut être empaqueté.
+      - name: Vérifier la construction du paquet
+        run: uv build
