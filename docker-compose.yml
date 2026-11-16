@@ -1,0 +1,16 @@
+# Lancement local de mon application avec une seule commande :
+#     docker compose up --build
+# Compose construit l'image avec le Dockerfile, puis démarre le conteneur.
+# Il lit le fichier .env placé à côté de ce fichier pour remplir les ${...}.
+
+services:
+  # Ce service deviendra l'API. Pour l'instant, il vérifie le modèle et s'arrête.
+  api:
+    # Je construis l'image à partir du Dockerfile du dossier courant.
+    build: .
+    image: p5-deploiement-ml:local
+    environment:
+      # ${VARIABLE:?message} : Compose refuse de démarrer si la variable manque.
+      APP_ENV: ${APP_ENV:?APP_ENV manque dans le fichier .env}
+      # ${VARIABLE:-valeur} : valeur utilisée quand la variable est absente.
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
