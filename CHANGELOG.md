@@ -7,7 +7,34 @@ version 1.0.0 de la clôture.
 
 ## [Non publié]
 
-## [0.2.0] - 2026-11-16
+## [0.3.0] - 2026-11-17
+
+### Ajouté
+
+- API FastAPI (`src/api/`) : `GET /health` et `POST /predict`, modèle vérifié et
+  chargé une seule fois au démarrage, documentation Swagger avec exemple.
+- Schéma d'entrée des 26 informations d'un collaborateur (`src/schemas/`) :
+  bornes, modalités lues dans la configuration, cohérence des durées ; erreurs
+  422 renvoyées en français, champ par champ.
+- Probabilité de départ corrigée du rééquilibrage des classes
+  (`probabilite_depart` dans `src/modele/evaluation.py`) : le score est ramené au
+  taux de départ de l'entraînement, rangé dans les métadonnées de l'artefact
+  (`taux_depart_entrainement`). L'ordre des scores, donc l'alerte, ne change pas.
+- Réponse enrichie : score, alerte, décision en clair, probabilités de départ et
+  de maintien, seuils en score et en probabilité, version du modèle et fiche RH,
+  les cinq variables qui pèsent le plus dans le score
+  (`src/modele/explication.py`, `src/services/prediction.py`).
+- Authentification par clé d'API dans l'en-tête `X-API-Key` : seule l'empreinte
+  SHA-256 est conservée (`API_KEY_HASH`) ; script `scripts/generer_cle_api.py`.
+- Tests de l'API, des schémas, de l'explication et de la probabilité corrigée.
+- README : utilisation de l'API et authentification.
+
+### Modifié
+
+- Image Docker : le conteneur lance le serveur Uvicorn sur le port 8000.
+- Workflow de déploiement : le test de fumée interroge `/health`.
+
+## [0.2.0] - 2026-11-13
 
 ### Ajouté
 

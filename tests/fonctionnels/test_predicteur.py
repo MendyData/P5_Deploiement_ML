@@ -96,12 +96,13 @@ def test_autre_correctif_de_python_tolere(copie_artefact):
     assert predicteur_tolerant.metadonnees.versions["python"] == "3.11.0"
 
 
-def test_predire_renvoie_le_score_et_l_alerte_par_identifiant(
+def test_predire_renvoie_score_alerte_et_probabilite_par_identifiant(
     predicteur, reference_test_p4
 ):
     collaborateurs = reference_test_p4.set_index(config.IDENTIFIANT)
     sortie = predicteur.predire(collaborateurs[config.COLONNES_ENTREE])
-    assert sortie.columns.tolist() == [config.COL_SCORE, config.COL_ALERTE]
+    colonnes = [config.COL_SCORE, config.COL_ALERTE, config.COL_PROBABILITE]
+    assert sortie.columns.tolist() == colonnes
     assert sortie.index.equals(collaborateurs.index)
 
 
@@ -129,4 +130,30 @@ def test_un_collaborateur_seul_et_dans_un_lot_obtient_le_meme_score(
 def test_deux_appels_successifs_donnent_le_meme_resultat(predicteur, entrees):
     pd.testing.assert_frame_equal(
         predicteur.predire(entrees), predicteur.predire(entrees)
+    )
+
+
+def test_probabilite_moyenne_proche_du_taux_de_depart_observe(
+    predicteur, entrees, departs_test_p4
+):
+    # Le score brut surestime le risque (33 % en moyenne pour 16 % de départs) ;
+    # la probabilité corrigée retrouve l'ordre de grandeur réel.
+    probabilites = predicteur.predire(entrees)[config.COL_PROBABILITE]
+    assert abs(probabilites.mean() - departs_test_p4.mean()) < 0.03
+
+
+def test_probabilite_plus_proche_des_departs_que_le_score(
+    predicteur, entrees, departs_test_p4
+):
+    sortie = predicteur.predire(entrees)
+    brier_score = ((sortie[config.COL_SCORE] - departs_test_p4) ** 2).mean()
+    brier_probabilite = ((sortie[config.COL_PROBABILITE] - departs_test_p4) ** 2).mean()
+    assert brier_probabilite < brier_score
+
+
+def test_probabilite_ne_change_pas_le_classement(predicteur, entrees):
+    sortie = predicteur.predire(entrees)
+    assert (
+        sortie[config.COL_SCORE].rank().tolist()
+        == sortie[config.COL_PROBABILITE].rank().tolist()
     )
