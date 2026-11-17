@@ -6,8 +6,11 @@ from typing import Annotated
 
 from fastapi import Depends, HTTPException, Security, status
 from fastapi.security import APIKeyHeader
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
-from src.parametres import Parametres, obtenir_parametres
+from src.bdd.modeles import Utilisateur
+from src.bdd.session import obtenir_session
 
 # Le client envoie sa clé dans cet en-tête ; Swagger propose le bouton Authorize.
 EN_TETE_CLE = APIKeyHeader(
@@ -32,26 +35,47 @@ def empreinte_cle(cle: str) -> str:
     return hashlib.sha256(cle.encode("utf-8")).hexdigest()
 
 
-def verifier_cle(
-    cle: Annotated[str | None, Security(EN_TETE_CLE)],
-    parametres: Annotated[Parametres, Depends(obtenir_parametres)],
-) -> None:
-    """Refuse la requête si la clé d'API est absente ou invalide.
+def creer_utilisateur(session: Session, nom: str) -> str:
+    """Enregistre un client de l'API et lui attribue une clé.
 
-    Sans empreinte configurée, toutes les requêtes sont refusées.
+    Args:
+        session: Session ouverte avec le rôle propriétaire.
+        nom: Nom du client, unique dans la table.
+
+    Returns:
+        La clé, à transmettre au client : seule son empreinte est enregistrée,
+        elle ne pourra donc plus être retrouvée.
+    """
+    cle = secrets.token_urlsafe(32)
+    session.add(Utilisateur(nom=nom, empreinte_cle=empreinte_cle(cle)))
+    session.commit()
+    return cle
+
+
+def utilisateur_courant(
+    cle: Annotated[str | None, Security(EN_TETE_CLE)],
+    session: Annotated[Session, Depends(obtenir_session)],
+) -> Utilisateur:
+    """Retrouve le client à partir de sa clé, ou refuse la requête.
 
     Args:
         cle: Valeur de l'en-tête X-API-Key, ou None s'il est absent.
-        parametres: Paramètres de l'environnement, dont l'empreinte attendue.
+        session: Session de la requête en cours.
+
+    Returns:
+        Le client actif dont l'empreinte de clé correspond.
 
     Raises:
-        HTTPException: Réponse 401 quand la clé est absente ou invalide.
+        HTTPException: Réponse 401 quand la clé est absente, inconnue ou
+            rattachée à un client désactivé.
     """
-    attendue = parametres.api_key_hash.encode("utf-8")
-    recue = empreinte_cle(cle or "").encode("utf-8")
-    # compare_digest prend le même temps que les empreintes soient proches ou non.
-    if not cle or not attendue or not secrets.compare_digest(recue, attendue):
+    recherche = select(Utilisateur).where(
+        Utilisateur.empreinte_cle == empreinte_cle(cle or ""), Utilisateur.actif
+    )
+    utilisateur = session.scalar(recherche) if cle else None
+    if utilisateur is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Clé d'API absente ou invalide.",
         )
+    return utilisateur
