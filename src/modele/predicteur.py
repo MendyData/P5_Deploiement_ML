@@ -13,7 +13,7 @@ from src.modele.artefact import (
     empreinte_sha256,
     versions_environnement,
 )
-from src.modele.evaluation import appliquer_seuil
+from src.modele.evaluation import appliquer_seuil, probabilite_depart
 
 journal = logging.getLogger(__name__)
 
@@ -88,18 +88,26 @@ class PredicteurAttrition:
             raise ArtefactInvalide(message)
 
     def predire(self, collaborateurs: pd.DataFrame) -> pd.DataFrame:
-        """Calcule le score de risque et l'alerte de chaque collaborateur.
+        """Calcule le score, l'alerte et la probabilité de départ de chacun.
 
         Args:
             collaborateurs: Les 26 variables d'entrée, une ligne par collaborateur.
 
         Returns:
-            Le score de risque, entre 0 et 1, et l'alerte : 1 si le score atteint
-            le seuil des métadonnées, 0 sinon. L'index reçu est conservé.
+            Le score de risque, entre 0 et 1 ; l'alerte : 1 si le score atteint le
+            seuil des métadonnées, 0 sinon ; la probabilité de départ, corrigée du
+            rééquilibrage des classes. L'index reçu est conservé.
         """
         scores = self.pipeline.predict_proba(collaborateurs)[:, 1]
         alertes = appliquer_seuil(scores, self.metadonnees.seuil_decision)
+        probabilites = probabilite_depart(
+            scores, self.metadonnees.taux_depart_entrainement
+        )
         return pd.DataFrame(
-            {config.COL_SCORE: scores, config.COL_ALERTE: alertes},
+            {
+                config.COL_SCORE: scores,
+                config.COL_ALERTE: alertes,
+                config.COL_PROBABILITE: probabilites,
+            },
             index=collaborateurs.index,
         )

@@ -2,6 +2,7 @@
   "version_modele": "0.1.0",
   "date_entrainement": "2026-11-10T10:26:15+00:00",
   "seuil_decision": 0.41811496025861317,
+  "taux_depart_entrainement": 0.16156462585034015,
   "colonnes_entree": [
     "age",
     "revenu_mensuel",
