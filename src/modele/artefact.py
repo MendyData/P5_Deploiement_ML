@@ -42,6 +42,8 @@ class MetadonneesArtefact:
         version_modele: Version du projet qui a entraîné le pipeline.
         date_entrainement: Date et heure de l'entraînement, en UTC (ISO 8601).
         seuil_decision: Seuil exact du P4 : un score au moins égal donne une alerte.
+        taux_depart_entrainement: Part des départs parmi les collaborateurs
+            d'entraînement, qui sert à corriger les scores en probabilités.
         colonnes_entree: Les 26 variables attendues pour chaque collaborateur.
         features: Les 46 colonnes reçues par le modèle, dans son ordre.
         versions: Versions de Python et des bibliothèques à l'entraînement.
@@ -52,6 +54,7 @@ class MetadonneesArtefact:
     version_modele: str
     date_entrainement: str
     seuil_decision: float
+    taux_depart_entrainement: float
     colonnes_entree: list[str]
     features: list[str]
     versions: dict[str, str]

@@ -41,3 +41,15 @@ def test_metadonnees_portent_l_empreinte_de_l_artefact_ecrit(
     monkeypatch.setattr(config, "FICHIER_METADONNEES", metadonnees)
     entraineur.sauvegarder(entraineur.entrainer())
     assert MetadonneesArtefact.lire(metadonnees).sha256 == empreinte_sha256(artefact)
+
+
+def test_metadonnees_portent_le_taux_de_depart_de_l_entrainement(
+    entraineur, tmp_path, monkeypatch
+):
+    metadonnees = tmp_path / "pipeline.json"
+    monkeypatch.setattr(config, "FICHIER_ARTEFACT", tmp_path / "pipeline.joblib")
+    monkeypatch.setattr(config, "FICHIER_METADONNEES", metadonnees)
+    entraineur.sauvegarder(entraineur.entrainer())
+    _, departs = entraineur.jeu(config.JEUX_ENTRAINEMENT)
+    taux = MetadonneesArtefact.lire(metadonnees).taux_depart_entrainement
+    assert taux == departs.mean()

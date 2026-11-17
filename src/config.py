@@ -133,3 +133,4 @@ BIBLIOTHEQUES_ARTEFACT: list[str] = ["scikit-learn", "pandas", "numpy"]
 # Colonnes de sortie du prédicteur, reprises dans la réponse de l'API.
 COL_SCORE: str = "score_risque"
 COL_ALERTE: str = "alerte"
+COL_PROBABILITE: str = "probabilite_depart"
