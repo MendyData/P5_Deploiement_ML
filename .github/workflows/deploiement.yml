@@ -1,4 +1,4 @@
-# Déploiement : je construis l'image Docker, puis je vérifie qu'elle démarre.
+# Déploiement : je construis l'image Docker, puis je vérifie que l'API répond.
 # - un push sur la branche staging utilise l'environnement GitHub « test » ;
 # - un tag vX.Y.Z, posé sur production, utilise l'environnement « production ».
 name: Déploiement
@@ -21,7 +21,7 @@ jobs:
     # Ses variables et ses secrets sont déclarés dans Settings, Environments.
     environment: ${{ github.ref_type == 'tag' && 'production' || 'test' }}
     env:
-      # Nom de l'image : p5-deploiement-ml:staging ou p5-deploiement-ml:v0.2.0.
+      # Nom de l'image : p5-deploiement-ml:staging ou p5-deploiement-ml:v0.3.0.
       IMAGE: p5-deploiement-ml:${{ github.ref_name }}
     steps:
       - name: Récupérer le code
@@ -31,7 +31,25 @@ jobs:
       - name: Construire l'image
         run: docker build --tag "$IMAGE" .
 
-      # Test de fumée : le conteneur démarre, charge le modèle et s'arrête sans
-      # erreur. APP_ENV vient de l'environnement GitHub, jamais du code.
-      - name: Vérifier que le conteneur démarre
-        run: docker run --rm --env APP_ENV="${{ vars.APP_ENV }}" "$IMAGE"
+      # Je lance l'API en arrière-plan. La variable et le secret viennent de
+      # l'environnement GitHub : « --env NOM » les transmet sans les écrire ici.
+      - name: Démarrer l'API
+        env:
+          APP_ENV: ${{ vars.APP_ENV }}
+          API_KEY_HASH: ${{ secrets.API_KEY_HASH }}
+        run: >-
+          docker run --detach --name api --publish 8000:8000
+          --env APP_ENV --env API_KEY_HASH "$IMAGE"
+
+      # Test de fumée : /health doit répondre. curl réessaie pendant le démarrage
+      # et échoue si la réponse n'est pas un succès.
+      - name: Vérifier que l'API répond
+        run: >-
+          curl --fail --silent --show-error
+          --retry 10 --retry-delay 2 --retry-all-errors
+          http://localhost:8000/health
+
+      # En cas d'échec, les journaux du conteneur disent pourquoi.
+      - name: Afficher les journaux de l'API
+        if: always()
+        run: docker logs api

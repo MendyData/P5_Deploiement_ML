@@ -22,6 +22,8 @@ class Parametres(BaseSettings):
         app_env: Environnement d'exécution : development sur le poste, test dans
             la CI et sur la branche staging, production pour une version livrée.
         log_level: Niveau de détail des journaux.
+        api_key_hash: Empreinte SHA-256 de la clé d'API attendue. Vide, elle
+            fait refuser toutes les requêtes authentifiées.
     """
 
     model_config = SettingsConfigDict(
@@ -34,6 +36,7 @@ class Parametres(BaseSettings):
 
     app_env: Literal["development", "test", "production"] = "development"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
+    api_key_hash: str = ""
 
 
 @lru_cache

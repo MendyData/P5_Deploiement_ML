@@ -88,17 +88,19 @@ class EntraineurPipeline:
     def sauvegarder(self, pipeline: Pipeline) -> None:
         """Écrit l'artefact, puis ses métadonnées, aux emplacements de la configuration.
 
-        Les métadonnées portent l'empreinte de l'artefact écrit et les métriques
-        recalculées sur le test.
+        Les métadonnées portent l'empreinte de l'artefact écrit, la part des
+        départs à l'entraînement et les métriques recalculées sur le test.
 
         Args:
             pipeline: Pipeline ajusté.
         """
         joblib.dump(pipeline, config.FICHIER_ARTEFACT)
+        _, departs = self.jeu(config.JEUX_ENTRAINEMENT)
         metadonnees = MetadonneesArtefact(
             version_modele=metadata.version(config.NOM_PROJET),
             date_entrainement=datetime.now(UTC).isoformat(timespec="seconds"),
             seuil_decision=config.SEUIL_DECISION,
+            taux_depart_entrainement=float(departs.mean()),
             colonnes_entree=config.COLONNES_ENTREE,
             features=pipeline["modele"].feature_names_in_.tolist(),
             versions=versions_environnement(),

@@ -29,12 +29,11 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --no-dev --no-install-project
 
-# 6. Je copie mon code, le modèle et le script de vérification, puis j'installe
-#    mon paquet src. README.md est lu par l'installation (pyproject.toml).
+# 6. Je copie mon code et le modèle, puis j'installe mon paquet src.
+#    README.md est lu par l'installation (pyproject.toml).
 COPY README.md ./
 COPY src ./src
 COPY models ./models
-COPY scripts/verifier_modele.py ./scripts/
 RUN uv sync --locked --no-dev
 
 # 7. Je crée un utilisateur sans droits d'administration et je lui passe la
@@ -42,10 +41,14 @@ RUN uv sync --locked --no-dev
 RUN useradd --system --no-create-home appli
 USER appli
 
-# 8. Je mets l'environnement virtuel en tête du PATH : « python » désigne celui
-#    de /app/.venv, avec mes dépendances.
+# 8. Je mets l'environnement virtuel en tête du PATH : « uvicorn » et « python »
+#    désignent ceux de /app/.venv, avec mes dépendances.
 ENV PATH="/app/.venv/bin:$PATH"
 
-# 9. Commande lancée au démarrage du conteneur : la vérification du modèle.
-#    Le serveur de l'API la remplacera.
-CMD ["python", "scripts/verifier_modele.py"]
+# 9. J'annonce le port sur lequel l'API écoute dans le conteneur.
+EXPOSE 8000
+
+# 10. Commande lancée au démarrage du conteneur : le serveur Uvicorn, qui sert
+#     mon application FastAPI. 0.0.0.0 : il accepte les appels venus de
+#     l'extérieur du conteneur.
+CMD ["uvicorn", "src.api.application:app", "--host", "0.0.0.0", "--port", "8000"]
