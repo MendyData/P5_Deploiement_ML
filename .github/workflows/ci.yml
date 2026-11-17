@@ -23,6 +23,35 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
+    # Base PostgreSQL jetable, créée pour ce job et détruite à la fin. Son mot de
+    # passe ne protège rien : il n'existe que le temps des tests.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: p5
+          POSTGRES_USER: proprietaire
+          POSTGRES_PASSWORD: base-jetable-de-ci
+        ports:
+          - 5432:5432
+        # Le job attend que la base réponde avant de lancer les étapes.
+        options: >-
+          --health-cmd "pg_isready -U proprietaire -d p5"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    # Les tests tournent dans l'environnement « test », sur la base jetable.
+    env:
+      APP_ENV: test
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: p5
+      POSTGRES_USER: proprietaire
+      POSTGRES_PASSWORD: base-jetable-de-ci
+      POSTGRES_API_USER: api
+      POSTGRES_API_PASSWORD: role-api-jetable-de-ci
+
     steps:
       - name: Récupérer le code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -48,7 +77,8 @@ jobs:
         run: uv run ruff format --check .
 
       # Les tests « lent » sont exclus car ils dépendent de données non versionnées
-      # ou réentraînent le modèle.
+      # ou réentraînent le modèle. Les tests de l'API et de la base créent leur
+      # propre base, p5_test, sur le service PostgreSQL ci-dessus.
       - name: Exécuter les tests
         run: uv run pytest -m "not lent" --cov=src
 
