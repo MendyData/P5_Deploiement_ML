@@ -8,6 +8,7 @@ from functools import lru_cache
 from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy import URL
 
 from src import config
 
@@ -22,8 +23,14 @@ class Parametres(BaseSettings):
         app_env: Environnement d'exécution : development sur le poste, test dans
             la CI et sur la branche staging, production pour une version livrée.
         log_level: Niveau de détail des journaux.
-        api_key_hash: Empreinte SHA-256 de la clé d'API attendue. Vide, elle
-            fait refuser toutes les requêtes authentifiées.
+        postgres_host: Machine qui héberge PostgreSQL.
+        postgres_port: Port de PostgreSQL.
+        postgres_db: Nom de la base.
+        postgres_user: Rôle propriétaire : il crée les tables et insère le jeu
+            de données.
+        postgres_password: Mot de passe du rôle propriétaire.
+        postgres_api_user: Rôle de l'API, aux droits limités.
+        postgres_api_password: Mot de passe du rôle de l'API.
     """
 
     model_config = SettingsConfigDict(
@@ -36,7 +43,36 @@ class Parametres(BaseSettings):
 
     app_env: Literal["development", "test", "production"] = "development"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
-    api_key_hash: str = ""
+    # 127.0.0.1 plutôt que localhost : sous Windows, localhost essaie d'abord
+    # l'adresse IPv6, sur laquelle Docker ne publie pas la base.
+    postgres_host: str = "127.0.0.1"
+    postgres_port: int = 5432
+    postgres_db: str = "p5"
+    postgres_user: str = "proprietaire"
+    postgres_password: str = ""
+    postgres_api_user: str = "api"
+    postgres_api_password: str = ""
+
+    def _url(self, role: str, mot_de_passe: str) -> URL:
+        """Construit l'adresse de la base pour un rôle donné."""
+        return URL.create(
+            "postgresql+psycopg",
+            username=role,
+            password=mot_de_passe,
+            host=self.postgres_host,
+            port=self.postgres_port,
+            database=self.postgres_db,
+        )
+
+    @property
+    def url_proprietaire(self) -> URL:
+        """Adresse de la base pour le rôle propriétaire (scripts d'initialisation)."""
+        return self._url(self.postgres_user, self.postgres_password)
+
+    @property
+    def url_api(self) -> URL:
+        """Adresse de la base pour le rôle de l'API, aux droits limités."""
+        return self._url(self.postgres_api_user, self.postgres_api_password)
 
 
 @lru_cache
