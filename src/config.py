@@ -30,6 +30,18 @@ COLONNES_SATISFACTION: list[str] = [
 COL_EXPERIENCE_TOTALE: str = "annee_experience_totale"
 COL_SOUS_RESPONSABLE_ACTUEL: str = "annes_sous_responsable_actuel"
 
+# Règles de cohérence métier, issues des contrôles du projet 4 (aucune violation
+# sur les 1 470 collaborateurs). Elles sont appliquées par l'API et par la base.
+# Une durée (à gauche) ne peut pas dépasser celle qui la contient (à droite).
+COHERENCES_DUREES: list[tuple[str, str]] = [
+    ("annees_dans_le_poste_actuel", "annees_dans_l_entreprise"),
+    ("annees_depuis_la_derniere_promotion", "annees_dans_l_entreprise"),
+    (COL_SOUS_RESPONSABLE_ACTUEL, "annees_dans_l_entreprise"),
+    ("annees_dans_l_entreprise", COL_EXPERIENCE_TOTALE),
+]
+# Âge minimal d'entrée dans la vie active : âge moins expérience totale.
+AGE_MINIMUM_VIE_ACTIVE: int = 16
+
 # Colonnes numériques transmises telles quelles au modèle.
 COLONNES_NUMERIQUES: list[str] = [
     "age",
