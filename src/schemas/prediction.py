@@ -73,6 +73,6 @@ class ErreursValidation(BaseModel):
 
 
 class ErreurSimple(BaseModel):
-    """Réponse 401 (clé d'API refusée) ou 503 (base de données indisponible)."""
+    """Réponse 401 (clé refusée), 500 (erreur de la base) ou 503 (base injoignable)."""
 
     detail: str

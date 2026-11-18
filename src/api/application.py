@@ -10,7 +10,7 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from src import config
@@ -80,15 +80,17 @@ app = FastAPI(
 app.add_exception_handler(RequestValidationError, refuser_donnees_invalides)
 
 
-@app.exception_handler(SQLAlchemyError)
+# Les deux gestionnaires visent des erreurs de la base : pour chaque erreur, FastAPI
+# retient le plus précis, donc OperationalError avant SQLAlchemyError.
+@app.exception_handler(OperationalError)
 def signaler_base_indisponible(
-    requete: Request, erreur: SQLAlchemyError
+    requete: Request, erreur: OperationalError
 ) -> JSONResponse:
-    """Répond 503 quand la base ne permet pas de tracer la demande.
+    """Répond 503 quand la base est injoignable : arrêtée, coupée ou trop lente.
 
     Args:
         requete: Requête reçue, non utilisée.
-        erreur: Erreur remontée par la base, écrite dans les journaux.
+        erreur: Erreur de connexion, écrite dans les journaux.
 
     Returns:
         La réponse 503 : sans trace possible, aucune prédiction n'est servie.
@@ -96,6 +98,28 @@ def signaler_base_indisponible(
     journal.error("Base de données indisponible : %s", erreur)
     detail = "Base de données indisponible : aucune prédiction n'est servie."
     return JSONResponse(status_code=503, content={"detail": detail})
+
+
+@app.exception_handler(SQLAlchemyError)
+def signaler_erreur_de_la_base(
+    requete: Request, erreur: SQLAlchemyError
+) -> JSONResponse:
+    """Répond 500 quand la base répond mais refuse l'ordre reçu.
+
+    Le schéma d'entrée applique déjà les règles de la base : un refus révèle un
+    écart entre les deux, donc une erreur du serveur, et non une donnée invalide
+    du client.
+
+    Args:
+        requete: Requête reçue, non utilisée.
+        erreur: Erreur remontée par la base, écrite dans les journaux.
+
+    Returns:
+        La réponse 500 : sans trace possible, aucune prédiction n'est servie.
+    """
+    journal.error("Ordre refusé par la base de données : %s", erreur)
+    detail = "Erreur de la base de données : aucune prédiction n'est servie."
+    return JSONResponse(status_code=500, content={"detail": detail})
 
 
 def obtenir_service(requete: Request) -> ServicePrediction:
@@ -114,7 +138,10 @@ def obtenir_service(requete: Request) -> ServicePrediction:
     "/health",
     tags=["Supervision"],
     summary="Vérifier que l'API, le modèle et la base répondent",
-    responses={503: {"model": ErreurSimple, "description": "Base indisponible"}},
+    responses={
+        500: {"model": ErreurSimple, "description": "Erreur de la base"},
+        503: {"model": ErreurSimple, "description": "Base indisponible"},
+    },
 )
 def sante(
     service: Annotated[ServicePrediction, Depends(obtenir_service)],
@@ -138,6 +165,7 @@ def sante(
     responses={
         401: {"model": ErreurSimple, "description": "Clé d'API refusée"},
         422: {"model": ErreursValidation, "description": "Données refusées"},
+        500: {"model": ErreurSimple, "description": "Erreur de la base"},
         503: {"model": ErreurSimple, "description": "Base indisponible"},
     },
 )

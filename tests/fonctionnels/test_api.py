@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import DataError, IntegrityError, OperationalError
 
 from src import config
 from src.api.application import app
@@ -195,6 +195,27 @@ def test_base_indisponible_repond_503_sans_prediction(
     }
 
 
+@pytest.mark.parametrize("erreur", [DataError, IntegrityError])
+@pytest.mark.parametrize(
+    ("methode", "chemin"), [("GET", "/health"), ("POST", "/predict")]
+)
+def test_ordre_refuse_par_la_base_repond_500_et_non_503(
+    client, monkeypatch, erreur, methode, chemin
+):
+    # La base répond, mais refuse l'ordre : elle n'est pas indisponible.
+    def session_qui_refuse():
+        raise erreur("INSERT INTO demandes", {}, Exception("ordre refusé"))
+
+    monkeypatch.setitem(app.dependency_overrides, obtenir_session, session_qui_refuse)
+
+    reponse = client.request(methode, chemin, json=EXEMPLE, headers={"X-API-Key": "x"})
+
+    assert reponse.status_code == 500
+    assert reponse.json() == {
+        "detail": "Erreur de la base de données : aucune prédiction n'est servie."
+    }
+
+
 def test_swagger_documente_les_deux_routes(client):
     schema = client.get("/schema.json").json()
 
@@ -205,6 +226,7 @@ def test_swagger_documente_les_deux_routes(client):
         "200",
         "401",
         "422",
+        "500",
         "503",
     }
     assert schema["info"]["contact"]["name"] == "Angèle GOMIS"

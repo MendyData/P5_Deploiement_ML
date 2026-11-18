@@ -149,7 +149,7 @@ uv run ruff format --check .
 | `tests/unitaires/` | Configuration, paramètres, features métier, pipeline, entraînement, schémas, explication du score |
 | `tests/fonctionnels/test_non_regression.py` | Le pipeline redonne les scores et les métriques du projet 4 sur les 294 collaborateurs du jeu de test |
 | `tests/fonctionnels/test_predicteur.py` | Artefact vérifié avant chargement, prédiction |
-| `tests/fonctionnels/test_api.py` | Routes de l'API : 200, 401, 422, 503, traces enregistrées, Swagger |
+| `tests/fonctionnels/test_api.py` | Routes de l'API : 200, 401, 422, 500, 503, traces enregistrées, Swagger |
 | `tests/fonctionnels/test_bdd.py` | Création de la base, insertion du jeu de données, clients de l'API |
 | `tests/fonctionnels/test_integrite_bdd.py` | Types, valeurs absentes, contraintes, cohérence métier, clés, insertion, suppression, droits du rôle de l'API |
 | `tests/fonctionnels/test_parcours_complet.py` | Un client envoie les exemples fournis, ses traces sont relues, puis il est désactivé |
@@ -227,7 +227,8 @@ Réponse de `POST /predict` :
 | 200 | Prédiction calculée |
 | 401 | Clé d'API absente ou invalide |
 | 422 | Données refusées : chaque champ en cause est listé, avec la raison en français |
-| 503 | Base de données indisponible : sans trace possible, aucune prédiction n'est servie |
+| 500 | La base répond mais refuse l'enregistrement : aucune prédiction n'est servie |
+| 503 | Base de données injoignable : sans trace possible, aucune prédiction n'est servie |
 
 Les données sont refusées (422) quand un champ manque, est inconnu, hors bornes ou
 d'une modalité non prévue, ou quand le profil est incohérent. Chaque nombre a une
