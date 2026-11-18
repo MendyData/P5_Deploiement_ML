@@ -224,7 +224,7 @@ wheels = [
 
 [[package]]
 name = "p5-deploiement-ml"
-version = "0.6.0"
+version = "1.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
