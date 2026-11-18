@@ -88,6 +88,8 @@ branch = true
 [tool.coverage.report]
 show_missing = true
 skip_empty = true
+# La CI échoue si la couverture passe sous 80 %.
+fail_under = 80
 
 [dependency-groups]
 dev = [
