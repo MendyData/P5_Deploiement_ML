@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from src import config
 from src.bdd.modeles import Demande, Reponse
 from src.modele.evaluation import probabilite_depart
-from src.modele.explication import contributions
+from src.modele.explication import contributions, impacts_en_points
 from src.modele.predicteur import PredicteurAttrition
 from src.schemas.collaborateur import Collaborateur
 from src.schemas.prediction import Facteur, Prediction
@@ -16,7 +16,36 @@ from src.schemas.prediction import Facteur, Prediction
 NOMBRE_FACTEURS: int = 5
 
 # Champs de la réponse qui se déduisent des autres : ils ne sont pas stockés.
-CHAMPS_DEDUITS: set[str] = {"decision", "probabilite_maintien", "seuil_probabilite"}
+CHAMPS_DEDUITS: set[str] = {
+    "decision",
+    "probabilite_maintien",
+    "lecture",
+    "seuil_probabilite",
+}
+
+
+def _pourcentage(valeur: float) -> str:
+    """Écrit un pourcentage à une décimale, avec la virgule française."""
+    return f"{valeur:.1f} %".replace(".", ",")
+
+
+def lire_en_pourcentages(probabilite: float) -> str:
+    """Écrit les probabilités de maintien et de départ en pourcentages lisibles.
+
+    Le maintien est déduit du départ déjà arrondi : les deux pourcentages
+    affichés font toujours 100 %.
+
+    Args:
+        probabilite: Probabilité de départ, entre 0 et 1.
+
+    Returns:
+        Par exemple « Maintien (0) : 96,3 % ; départ (1) : 3,7 % ».
+    """
+    depart = round(100 * probabilite, 1)
+    maintien = round(100 - depart, 1)
+    return (
+        f"Maintien (0) : {_pourcentage(maintien)} ; départ (1) : {_pourcentage(depart)}"
+    )
 
 
 class ServicePrediction:
@@ -90,6 +119,7 @@ class ServicePrediction:
             decision="Risque de départ" if alerte else "Pas de risque détecté",
             probabilite_depart=probabilite,
             probabilite_maintien=round(1 - probabilite, 4),
+            lecture=lire_en_pourcentages(probabilite),
             seuil_decision=self._predicteur.metadonnees.seuil_decision,
             seuil_probabilite=round(self.seuil_probabilite, 4),
             version_modele=self.version_modele,
@@ -98,12 +128,19 @@ class ServicePrediction:
 
     def _facteurs(self, donnees: pd.DataFrame) -> list[Facteur]:
         """Retient les variables qui pèsent le plus dans le score, dans l'ordre."""
-        parts = contributions(self._predicteur.pipeline, donnees).iloc[0]
+        pipeline = self._predicteur.pipeline
+        parts = contributions(pipeline, donnees).iloc[0]
+        impacts = impacts_en_points(
+            parts,
+            pipeline[-1].intercept_[0],
+            self._predicteur.metadonnees.taux_depart_entrainement,
+        )
         ordre = parts.abs().sort_values(ascending=False).index[:NOMBRE_FACTEURS]
         return [
             Facteur(
                 variable=variable,
                 contribution=round(float(parts[variable]), 4),
+                impact_points=round(float(impacts[variable]), 1),
                 effet="augmente le risque"
                 if parts[variable] > 0
                 else "réduit le risque",

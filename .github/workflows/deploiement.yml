@@ -1,5 +1,6 @@
-# Déploiement : je construis l'image, je démarre la base et l'API avec Docker
-# Compose, puis je vérifie que l'API répond.
+# Déploiement : je rejoue d'abord la CI sur le commit à déployer, puis je
+# construis l'image, je démarre la base et l'API avec Docker Compose et je
+# vérifie que l'API répond.
 # - un push sur la branche staging utilise l'environnement GitHub « test » ;
 # - un tag vX.Y.Z, posé sur production, utilise l'environnement « production ».
 name: Déploiement
@@ -14,8 +15,15 @@ permissions:
   contents: read
 
 jobs:
+  # Un tag ne déclenche pas la CI : je la rappelle ici. Si une vérification
+  # échoue, l'image n'est pas construite et rien n'est déployé.
+  verification:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
   image:
     name: Image Docker et test de fumée
+    needs: verification
     runs-on: ubuntu-latest
     timeout-minutes: 10
     # Je choisis l'environnement GitHub : « production » pour un tag, « test » sinon.
