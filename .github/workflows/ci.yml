@@ -1,18 +1,23 @@
-
+# Intégration continue : à chaque push, je vérifie le style, le format, les tests
+# et la construction du paquet. Le workflow de déploiement rappelle aussi ce
+# workflow avant de construire l'image : rien n'est déployé si une vérification
+# échoue.
 name: CI - Qualité et tests
 
 on:
   push:
-    # Vérifie chaque push sur une branche, quel que soit son nom.
+    # Je vérifie chaque push, sur toutes les branches, quel que soit leur nom.
     branches: ["**"]
+  # Le workflow de déploiement l'appelle avant de construire l'image.
+  workflow_call:
   workflow_dispatch:
 
-# Le workflow ne peut que lire le dépôt ; il n'a pas besoin d'écrire de contenu.
+# Je ne donne au workflow que le droit de lire le dépôt.
 permissions:
   contents: read
 
-# Si un nouveau push arrive sur la même branche, les vérifications précédentes,
-# devenues obsolètes, sont annulées.
+# Si je pousse à nouveau sur la même branche, j'annule les vérifications
+# précédentes, devenues obsolètes.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -23,8 +28,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
-    # Base PostgreSQL jetable, créée pour ce job et détruite à la fin. Son mot de
-    # passe ne protège rien : il n'existe que le temps des tests.
+    # Je crée une base PostgreSQL jetable pour ce job ; elle disparaît à la fin.
+    # Son mot de passe ne protège rien : il n'existe que le temps des tests.
     services:
       postgres:
         image: postgres:16
@@ -34,14 +39,14 @@ jobs:
           POSTGRES_PASSWORD: base-jetable-de-ci
         ports:
           - 5432:5432
-        # Le job attend que la base réponde avant de lancer les étapes.
+        # J'attends que la base réponde avant de lancer les étapes.
         options: >-
           --health-cmd "pg_isready -U proprietaire -d p5"
           --health-interval 5s
           --health-timeout 3s
           --health-retries 10
 
-    # Les tests tournent dans l'environnement « test », sur la base jetable.
+    # Je lance les tests dans l'environnement « test », sur la base jetable.
     env:
       APP_ENV: test
       POSTGRES_HOST: localhost
@@ -53,12 +58,14 @@ jobs:
       POSTGRES_API_PASSWORD: role-api-jetable-de-ci
 
     steps:
+      # Chaque action est épinglée par l'empreinte de son commit : son code ne
+      # peut pas changer sans que je modifie ce fichier.
       - name: Récupérer le code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # La version de Python est déduite des contraintes du pyproject.toml.
+      # uv déduit la version de Python des contraintes du pyproject.toml.
       - name: Installer uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
         with:
           enable-cache: true
 
@@ -66,7 +73,7 @@ jobs:
         run: uv python install
 
       # --locked garantit que l'environnement correspond exactement à uv.lock.
-      # --all-groups inclut notamment les dépendances de développement (Ruff, pytest).
+      # --all-groups inclut les dépendances de développement (Ruff, pytest).
       - name: Installer les dépendances
         run: uv sync --locked --all-groups
 
@@ -76,12 +83,12 @@ jobs:
       - name: Vérifier le formatage
         run: uv run ruff format --check .
 
-      # Les tests « lent » sont exclus car ils dépendent de données non versionnées
-      # ou réentraînent le modèle. Les tests de l'API et de la base créent leur
+      # J'exclus les tests « lent » : ils dépendent de données non versionnées ou
+      # réentraînent le modèle. Les tests de l'API et de la base créent leur
       # propre base, p5_test, sur le service PostgreSQL ci-dessus.
       - name: Exécuter les tests
         run: uv run pytest -m "not lent" --cov=src
 
-      # Vérifie aussi que le projet peut être empaqueté.
+      # Je vérifie aussi que le projet peut être empaqueté.
       - name: Vérifier la construction du paquet
         run: uv build

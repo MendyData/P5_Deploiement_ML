@@ -4,7 +4,7 @@
 
 [project]
 name = "p5-deploiement-ml"
-version = "1.0.0"
+version = "1.1.0"
 description = "API de prédiction du départ des employés (POC Futurisys)"
 readme = "README.md"
 authors = [{ name = "Angèle Gomis Mendy" }]

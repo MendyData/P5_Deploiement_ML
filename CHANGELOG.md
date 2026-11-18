@@ -7,6 +7,41 @@ version 1.0.0 de la clôture.
 
 ## [Non publié]
 
+## [1.1.0] - 2026-11-18
+
+### Ajouté
+
+- Réponse de `POST /predict` : `lecture` donne les probabilités de maintien
+  (classe 0) et de départ (classe 1) en pourcentages ; chaque facteur de la fiche
+  RH gagne `impact_points`, son effet en points de probabilité de départ.
+- Guide d'utilisation de l'API (`docs/guide_utilisateur.md`) : demande pas à pas
+  dans Swagger, les 26 informations et leurs valeurs, lecture de la réponse,
+  erreurs, appels en PowerShell, curl et Python.
+
+### Corrigé
+
+- Chaque nombre reçu par l'API a une borne haute, un peu au-dessus du maximum
+  observé au projet 4 : un nombre démesuré est refusé (422) au lieu de produire un
+  score extrapolé ou une réponse 503.
+- La réponse 503 est réservée à une base injoignable ; un ordre refusé par la base
+  répond 500.
+- Les réponses JSON déclarent l'encodage UTF-8 : Windows PowerShell 5.1 affiche
+  les accents correctement.
+- Fiche RH : la contribution d'un facteur est décrite en log-cote, son unité.
+- README : version de FastAPI.
+
+### Modifié
+
+- Le workflow de déploiement rejoue la CI avant de construire l'image : un commit
+  dont les tests échouent n'est jamais déployé.
+- L'action `setup-uv` est épinglée par l'empreinte de son commit, comme `checkout`.
+- Captures de Swagger et de la réponse de l'API.
+
+### Sécurité
+
+- Les messages d'erreur de la base ne reprennent plus les valeurs envoyées : aucune
+  information RH n'entre dans les journaux.
+
 ## [1.0.0] - 2026-11-18
 
 Première version complète de la preuve de concept.

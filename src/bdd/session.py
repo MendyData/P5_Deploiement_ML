@@ -21,10 +21,14 @@ def creer_moteur(url: URL) -> Engine:
         connexion coupée est remplacée au lieu de faire échouer la requête.
         connect_timeout borne l'attente d'une base injoignable : sans lui,
         psycopg patiente jusqu'à 130 secondes avant que l'API ne réponde 503.
+        hide_parameters retire des messages d'erreur les valeurs envoyées à la
+        base : les informations RH d'un collaborateur n'entrent pas dans les
+        journaux.
     """
     return create_engine(
         url,
         pool_pre_ping=True,
+        hide_parameters=True,
         connect_args={"connect_timeout": DELAI_CONNEXION},
     )
 

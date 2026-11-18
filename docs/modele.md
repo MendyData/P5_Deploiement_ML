@@ -96,9 +96,17 @@ Les tests de non-régression (`tests/fonctionnels/test_non_regression.py`) véri
 
 L'API renvoie, avec chaque score, les cinq variables qui pèsent le plus. La
 contribution d'une variable est son coefficient multiplié par sa valeur mise à
-l'échelle : positive, elle pousse vers le départ ; négative, vers le maintien. La
-somme des contributions et de la constante du modèle redonne le score, avant sa
-conversion en probabilité (`src/modele/explication.py`).
+l'échelle : positive, elle pousse vers le départ ; négative, vers le maintien.
+Elle s'exprime en log-cote, le logarithme de score / (1 − score), et non en
+pourcentage. La somme des contributions et de la constante du modèle, passée par
+la fonction logistique, redonne le score (`src/modele/explication.py`).
+
+Pour les RH, chaque contribution est aussi traduite en points de probabilité de
+départ (`impact_points`) : l'écart entre la probabilité du collaborateur et celle
+qu'il aurait si cette variable valait la moyenne de l'entraînement. Ces impacts
+ne s'additionnent pas, car la fonction logistique n'est pas linéaire. La réponse
+donne enfin les deux probabilités en pourcentages (`lecture`) : maintien
+(classe 0) et départ (classe 1).
 
 ## Limites et points de vigilance
 
@@ -108,9 +116,10 @@ conversion en probabilité (`src/modele/explication.py`).
   un score est visible dans la fiche RH.
 - Le jeu d'entraînement est petit (1 176 collaborateurs) et vient d'une seule
   entreprise : le modèle ne se transpose pas tel quel ailleurs.
-- L'API accepte des valeurs un peu plus larges que celles du jeu d'entraînement
-  (par exemple un âge jusqu'à 70 ans) : loin des valeurs connues, le score est
-  moins fiable.
+- Chaque nombre reçu par l'API a une borne haute, un peu au-dessus du maximum du
+  jeu d'entraînement (par exemple un âge jusqu'à 70 ans pour 60 observés, 20
+  formations pour 6) : au-delà, la demande est refusée. Près de ces bornes, loin
+  des valeurs connues, le score est moins fiable.
 
 ## Sécurité du chargement
 
