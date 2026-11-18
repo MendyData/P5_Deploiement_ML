@@ -14,6 +14,11 @@ class Facteur(BaseModel):
         "pourcentage : positive, elle pousse vers le départ ; négative, vers le "
         "maintien."
     )
+    impact_points: float = Field(
+        description="La même part, en points de probabilité de départ : l'écart "
+        "avec la probabilité qu'aurait le collaborateur si cette variable valait "
+        "la moyenne. Les impacts de plusieurs variables ne s'additionnent pas."
+    )
     effet: Literal["augmente le risque", "réduit le risque"]
 
 
@@ -38,6 +43,10 @@ class Prediction(BaseModel):
     )
     probabilite_maintien: float = Field(
         ge=0, le=1, description="Probabilité estimée de maintien : 1 - départ."
+    )
+    lecture: str = Field(
+        description="Les deux probabilités en pourcentages, pour les RH : "
+        "maintien (classe 0) et départ (classe 1)."
     )
     seuil_decision: float = Field(
         description="Seuil du score à partir duquel l'alerte part."

@@ -193,6 +193,7 @@ Réponse de `POST /predict` :
   "decision": "Pas de risque détecté",
   "probabilite_depart": 0.0368,
   "probabilite_maintien": 0.9632,
+  "lecture": "Maintien (0) : 96,3 % ; départ (1) : 3,7 %",
   "seuil_decision": 0.41811496025861317,
   "seuil_probabilite": 0.1216,
   "version_modele": "0.1.0",
@@ -200,6 +201,7 @@ Réponse de `POST /predict` :
     {
       "variable": "nombre_experiences_precedentes",
       "contribution": 1.3447,
+      "impact_points": 2.7,
       "effet": "augmente le risque"
     }
   ]
@@ -215,13 +217,17 @@ Réponse de `POST /predict` :
 - `probabilite_depart` : le score corrigé du rééquilibrage, ramené au taux de départ
   de l'entraînement (16,2 %). C'est le chiffre à communiquer : ici, 3,7 % de risque
   de départ. `probabilite_maintien` en est le complément.
+- `lecture` : les deux probabilités en pourcentages, maintien (classe 0) et départ
+  (classe 1), prêtes à lire pour les RH.
 - `seuil_probabilite` : le seuil de décision exprimé en probabilité, environ 12 %.
   La correction conserve l'ordre des scores : l'alerte est la même, que l'on compare
   le score à 0,418 ou la probabilité à 12 %.
 - `facteurs` : la fiche RH, c'est-à-dire les cinq variables qui pèsent le plus dans
   ce score. Une contribution positive pousse vers le départ, une contribution
   négative vers le maintien. Elle s'exprime en log-cote, l'échelle interne du
-  modèle, et non en pourcentage.
+  modèle. `impact_points` la traduit en points de probabilité de départ : ici,
+  les expériences précédentes ajoutent 2,7 points par rapport à un collaborateur
+  moyen.
 
 | Code | Signification |
 | --- | --- |

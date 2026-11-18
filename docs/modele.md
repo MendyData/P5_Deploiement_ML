@@ -101,6 +101,13 @@ Elle s'exprime en log-cote, le logarithme de score / (1 − score), et non en
 pourcentage. La somme des contributions et de la constante du modèle, passée par
 la fonction logistique, redonne le score (`src/modele/explication.py`).
 
+Pour les RH, chaque contribution est aussi traduite en points de probabilité de
+départ (`impact_points`) : l'écart entre la probabilité du collaborateur et celle
+qu'il aurait si cette variable valait la moyenne de l'entraînement. Ces impacts
+ne s'additionnent pas, car la fonction logistique n'est pas linéaire. La réponse
+donne enfin les deux probabilités en pourcentages (`lecture`) : maintien
+(classe 0) et départ (classe 1).
+
 ## Limites et points de vigilance
 
 - Le modèle aide à préparer un échange RH. Il ne décide pas : près de deux alertes

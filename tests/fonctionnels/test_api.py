@@ -13,7 +13,7 @@ from src.api.securite import creer_utilisateur
 from src.bdd.modeles import Demande, Reponse, Utilisateur
 from src.bdd.session import obtenir_session
 from src.schemas.collaborateur import EXEMPLE
-from src.services.prediction import NOMBRE_FACTEURS
+from src.services.prediction import NOMBRE_FACTEURS, lire_en_pourcentages
 
 
 @pytest.fixture(scope="module")
@@ -95,6 +95,26 @@ def test_predict_renvoie_la_fiche_rh_triee_par_poids(client, en_tete):
     for facteur in facteurs:
         attendu = "augmente" if facteur["contribution"] > 0 else "réduit"
         assert facteur["effet"] == f"{attendu} le risque"
+        assert (facteur["impact_points"] > 0) == (facteur["contribution"] > 0)
+
+
+def test_predict_lit_les_probabilites_en_pourcentages(client, en_tete):
+    corps = client.post("/predict", json=EXEMPLE, headers=en_tete).json()
+
+    # L'exemple de Swagger : 3,68 % de probabilité de départ.
+    assert corps["lecture"] == "Maintien (0) : 96,3 % ; départ (1) : 3,7 %"
+
+
+@pytest.mark.parametrize(
+    ("probabilite", "attendue"),
+    [
+        (0.0365, "Maintien (0) : 96,4 % ; départ (1) : 3,6 %"),
+        (0.6, "Maintien (0) : 40,0 % ; départ (1) : 60,0 %"),
+        (0.0, "Maintien (0) : 100,0 % ; départ (1) : 0,0 %"),
+    ],
+)
+def test_lecture_en_pourcentages_qui_font_toujours_100(probabilite, attendue):
+    assert lire_en_pourcentages(probabilite) == attendue
 
 
 def test_predict_enregistre_la_demande_puis_la_reponse_reliee(
