@@ -7,6 +7,31 @@ version 1.0.0 de la clôture.
 
 ## [Non publié]
 
+## [0.5.0] - 2026-11-18
+
+### Ajouté
+
+- Règle de cohérence issue de l'analyse du projet 4 : l'API refuse une entrée dans
+  la vie active avant 16 ans (âge moins expérience totale).
+- Contraintes `CHECK` de cohérence métier dans les tables `collaborateurs` et
+  `demandes` : durées emboîtées, revenu positif, âge d'entrée dans la vie active.
+- Tests d'intégrité de la base (`tests/fonctionnels/test_integrite_bdd.py`) : types
+  des colonnes, valeurs absentes, contraintes `CHECK`, cohérence métier, clés
+  étrangères, unicité, insertion, suppression et droits du rôle de l'API.
+- Test du parcours complet (`tests/fonctionnels/test_parcours_complet.py`) : un
+  client envoie les exemples fournis, ses traces sont relues, puis il est
+  désactivé.
+- Seuil de couverture à 80 % (`fail_under`) : en dessous, les tests échouent en
+  local comme dans la CI.
+- Rapport de couverture dans `docs/rapport_couverture.md`.
+- README : organisation des tests et couverture, règles de cohérence.
+
+### Modifié
+
+- Les règles de cohérence des durées passent dans `src/config.py`, lues à la fois
+  par le schéma de l'API et par la base ; le test couvre désormais les quatre
+  paires de durées.
+
 ## [0.4.0] - 2026-11-18
 
 ### Ajouté
