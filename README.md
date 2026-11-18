@@ -98,7 +98,7 @@ rendent versionné, vérifié, testé et reproductible.
 | pandas | 3.0.6 | Manipulation des données |
 | numpy | 2.4.6 | Calcul numérique |
 | joblib | 1.6.0 | Sauvegarde et chargement du modèle |
-| FastAPI | 0.162 | API et documentation Swagger |
+| FastAPI | 0.163 | API et documentation Swagger |
 | Uvicorn | 0.54 | Serveur qui exécute l'API |
 | Pydantic | 2.14 | Validation des données reçues |
 | pydantic-settings | 2.16 | Paramètres lus dans l'environnement et validés |
@@ -220,7 +220,8 @@ Réponse de `POST /predict` :
   le score à 0,418 ou la probabilité à 12 %.
 - `facteurs` : la fiche RH, c'est-à-dire les cinq variables qui pèsent le plus dans
   ce score. Une contribution positive pousse vers le départ, une contribution
-  négative vers le maintien.
+  négative vers le maintien. Elle s'exprime en log-cote, l'échelle interne du
+  modèle, et non en pourcentage.
 
 | Code | Signification |
 | --- | --- |

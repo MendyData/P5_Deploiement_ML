@@ -96,9 +96,10 @@ Les tests de non-régression (`tests/fonctionnels/test_non_regression.py`) véri
 
 L'API renvoie, avec chaque score, les cinq variables qui pèsent le plus. La
 contribution d'une variable est son coefficient multiplié par sa valeur mise à
-l'échelle : positive, elle pousse vers le départ ; négative, vers le maintien. La
-somme des contributions et de la constante du modèle redonne le score, avant sa
-conversion en probabilité (`src/modele/explication.py`).
+l'échelle : positive, elle pousse vers le départ ; négative, vers le maintien.
+Elle s'exprime en log-cote, le logarithme de score / (1 − score), et non en
+pourcentage. La somme des contributions et de la constante du modèle, passée par
+la fonction logistique, redonne le score (`src/modele/explication.py`).
 
 ## Limites et points de vigilance
 

@@ -20,7 +20,7 @@ def test_somme_des_parts_et_de_la_constante_redonne_le_score(
     constante = predicteur.pipeline[-1].intercept_[0]
     scores = predicteur.predire(reference_test_p4)[config.COL_SCORE]
 
-    # La fonction logistique convertit la somme en probabilité.
+    # La somme est en log-cote : la fonction logistique la reconvertit en score.
     recalcules = 1 / (1 + np.exp(-(parts.sum(axis=1) + constante)))
 
     np.testing.assert_allclose(recalcules, scores)

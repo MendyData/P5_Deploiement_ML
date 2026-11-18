@@ -10,8 +10,9 @@ class Facteur(BaseModel):
 
     variable: str = Field(description="Variable du modèle, après encodage.")
     contribution: float = Field(
-        description="Part de la variable dans le score : positive, elle pousse "
-        "vers le départ ; négative, vers le maintien."
+        description="Part de la variable dans le score, en log-cote et non en "
+        "pourcentage : positive, elle pousse vers le départ ; négative, vers le "
+        "maintien."
     )
     effet: Literal["augmente le risque", "réduit le risque"]
 
