@@ -54,6 +54,30 @@ def colonnes_collaborateur() -> list[Column]:
     return [*numeriques, *textes]
 
 
+def contraintes_de_coherence() -> list[CheckConstraint]:
+    """Construit les règles de cohérence métier d'un collaborateur.
+
+    Ce sont les règles appliquées par l'API : la base les vérifie aussi, en
+    dernière barrière.
+
+    Returns:
+        De nouvelles contraintes à chaque appel : une contrainte n'appartient
+        qu'à une seule table.
+    """
+    durees = [
+        CheckConstraint(f"{courte} <= {longue}", name=f"{courte}_coherente")
+        for courte, longue in config.COHERENCES_DUREES
+    ]
+    return [
+        *durees,
+        CheckConstraint("revenu_mensuel > 0", name="revenu_mensuel_positif"),
+        CheckConstraint(
+            f"age - {config.COL_EXPERIENCE_TOTALE} >= {config.AGE_MINIMUM_VIE_ACTIVE}",
+            name="age_entree_vie_active",
+        ),
+    ]
+
+
 class Utilisateur(Base):
     """Client autorisé à appeler l'API : seule l'empreinte de sa clé est stockée."""
 
@@ -79,6 +103,7 @@ class Collaborateur(Base):
         Column(config.IDENTIFIANT, Integer, primary_key=True, autoincrement=False),
         *colonnes_collaborateur(),
         Column(config.CIBLE, Boolean, nullable=False),
+        *contraintes_de_coherence(),
     )
 
 
@@ -101,6 +126,7 @@ class Demande(Base):
             "utilisateur_id", ForeignKey("utilisateurs.id"), nullable=False, index=True
         ),
         *colonnes_collaborateur(),
+        *contraintes_de_coherence(),
     )
 
 

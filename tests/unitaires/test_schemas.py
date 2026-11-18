@@ -27,6 +27,7 @@ def test_collaborateurs_de_reference_tous_acceptes(jeu, request):
     ("champ", "valeur"),
     [
         ("age", 17),
+        ("age", None),
         ("age", "trente"),
         ("revenu_mensuel", 0),
         ("satisfaction_employee_equipe", 5),
@@ -55,16 +56,23 @@ def test_champ_inconnu_refuse():
         Collaborateur(**EXEMPLE, salaire=3000)
 
 
-@pytest.mark.parametrize(
-    ("courte", "longue"),
-    [
-        ("annees_dans_le_poste_actuel", "annees_dans_l_entreprise"),
-        ("annees_depuis_la_derniere_promotion", "annees_dans_l_entreprise"),
-        ("annes_sous_responsable_actuel", "annees_dans_l_entreprise"),
-    ],
-)
+@pytest.mark.parametrize(("courte", "longue"), config.COHERENCES_DUREES)
 def test_duree_superieure_a_celle_qui_la_contient_refusee(courte, longue):
     incoherent = {**EXEMPLE, courte: EXEMPLE[longue] + 1}
 
     with pytest.raises(ValidationError, match="ne peut pas dépasser"):
         Collaborateur(**incoherent)
+
+
+def test_entree_dans_la_vie_active_avant_16_ans_refusee():
+    # 20 ans et 5 ans d'expérience : une entrée dans la vie active à 15 ans.
+    incoherent = {**EXEMPLE, "age": 20, "annee_experience_totale": 5}
+
+    with pytest.raises(ValidationError, match="avant 16 ans"):
+        Collaborateur(**incoherent)
+
+
+def test_entree_dans_la_vie_active_a_16_ans_acceptee():
+    limite = {**EXEMPLE, "age": 26, "annee_experience_totale": 10}
+
+    assert Collaborateur(**limite).age == 26

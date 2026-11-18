@@ -4,7 +4,7 @@
 
 [project]
 name = "p5-deploiement-ml"
-version = "0.4.0"
+version = "0.5.0"
 description = "API de prédiction du départ des employés (POC Futurisys)"
 readme = "README.md"
 authors = [{ name = "Angèle Gomis Mendy" }]
@@ -88,6 +88,8 @@ branch = true
 [tool.coverage.report]
 show_missing = true
 skip_empty = true
+# La CI échoue si la couverture passe sous 80 %.
+fail_under = 80
 
 [dependency-groups]
 dev = [
