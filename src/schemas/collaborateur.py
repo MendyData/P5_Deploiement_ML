@@ -10,11 +10,14 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from src import config
 
+# Chaque nombre a une borne haute, un peu au-dessus du maximum observé au projet 4
+# (indiqué en commentaire) : loin des valeurs connues, le score n'aurait plus de
+# sens, et un nombre démesuré ne tiendrait pas dans une colonne INTEGER de la base.
+
 # Types réutilisés par plusieurs champs.
-Annees = Annotated[int, Field(ge=0, le=50)]
+Annees = Annotated[int, Field(ge=0, le=50)]  # 40 au plus
 Satisfaction = Annotated[int, Field(ge=1, le=4, description="De 1 (faible) à 4.")]
 Note = Annotated[int, Field(ge=1, le=4, description="De 1 à 4.")]
-Compte = Annotated[int, Field(ge=0)]
 
 # Modalités autorisées, lues dans la configuration du pipeline.
 Genre = Literal[tuple(config.CATEGORIES_ORDINALES["genre"])]
@@ -69,13 +72,15 @@ class Collaborateur(BaseModel):
 
     model_config = ConfigDict(extra="forbid", json_schema_extra={"example": EXEMPLE})
 
-    age: int = Field(ge=18, le=70, description="Âge, en années.")
+    age: int = Field(ge=18, le=70, description="Âge, en années.")  # 60 au plus
     genre: Genre
-    revenu_mensuel: int = Field(gt=0, description="Revenu mensuel brut.")
+    revenu_mensuel: int = Field(  # 19 999 au plus
+        gt=0, le=50_000, description="Revenu mensuel brut."
+    )
     statut_marital: StatutMarital
     departement: Departement
     poste: Poste
-    nombre_experiences_precedentes: Compte
+    nombre_experiences_precedentes: int = Field(ge=0, le=20)  # 9 au plus
     annee_experience_totale: Annees
     annees_dans_l_entreprise: Annees
     annees_dans_le_poste_actuel: Annees
@@ -88,12 +93,14 @@ class Collaborateur(BaseModel):
     note_evaluation_precedente: Note
     note_evaluation_actuelle: Note
     heure_supplementaires: HeuresSupplementaires
-    augementation_salaire_precedente: int = Field(
+    augementation_salaire_precedente: int = Field(  # 25 au plus
         ge=0, le=100, description="Dernière augmentation, en pourcentage."
     )
-    nombre_participation_pee: Compte
-    nb_formations_suivies: Compte
-    distance_domicile_travail: int = Field(ge=0, description="En kilomètres.")
+    nombre_participation_pee: int = Field(ge=0, le=10)  # 3 au plus
+    nb_formations_suivies: int = Field(ge=0, le=20)  # 6 au plus
+    distance_domicile_travail: int = Field(  # 29 au plus
+        ge=0, le=200, description="En kilomètres."
+    )
     niveau_education: int = Field(ge=1, le=5, description="De 1 à 5.")
     domaine_etude: DomaineEtude
     frequence_deplacement: FrequenceDeplacement

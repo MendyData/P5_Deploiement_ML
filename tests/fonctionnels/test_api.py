@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import DataError, IntegrityError, OperationalError
 
 from src import config
 from src.api.application import app
@@ -13,7 +13,7 @@ from src.api.securite import creer_utilisateur
 from src.bdd.modeles import Demande, Reponse, Utilisateur
 from src.bdd.session import obtenir_session
 from src.schemas.collaborateur import EXEMPLE
-from src.services.prediction import NOMBRE_FACTEURS
+from src.services.prediction import NOMBRE_FACTEURS, lire_en_pourcentages
 
 
 @pytest.fixture(scope="module")
@@ -95,6 +95,26 @@ def test_predict_renvoie_la_fiche_rh_triee_par_poids(client, en_tete):
     for facteur in facteurs:
         attendu = "augmente" if facteur["contribution"] > 0 else "réduit"
         assert facteur["effet"] == f"{attendu} le risque"
+        assert (facteur["impact_points"] > 0) == (facteur["contribution"] > 0)
+
+
+def test_predict_lit_les_probabilites_en_pourcentages(client, en_tete):
+    corps = client.post("/predict", json=EXEMPLE, headers=en_tete).json()
+
+    # L'exemple de Swagger : 3,68 % de probabilité de départ.
+    assert corps["lecture"] == "Maintien (0) : 96,3 % ; départ (1) : 3,7 %"
+
+
+@pytest.mark.parametrize(
+    ("probabilite", "attendue"),
+    [
+        (0.0365, "Maintien (0) : 96,4 % ; départ (1) : 3,6 %"),
+        (0.6, "Maintien (0) : 40,0 % ; départ (1) : 60,0 %"),
+        (0.0, "Maintien (0) : 100,0 % ; départ (1) : 0,0 %"),
+    ],
+)
+def test_lecture_en_pourcentages_qui_font_toujours_100(probabilite, attendue):
+    assert lire_en_pourcentages(probabilite) == attendue
 
 
 def test_predict_enregistre_la_demande_puis_la_reponse_reliee(
@@ -136,6 +156,11 @@ def test_predict_client_desactive_refuse(client, en_tete, session_bdd):
         ({"age": 71}, "age", "La valeur doit être inférieure ou égale à 70."),
         ({"age": "trente"}, "age", "Un nombre entier est attendu."),
         ({"revenu_mensuel": 0}, "revenu_mensuel", "doit être supérieure à 0."),
+        (
+            {"revenu_mensuel": 3_000_000_000},
+            "revenu_mensuel",
+            "doit être inférieure ou égale à 50000.",
+        ),
         ({"genre": "X"}, "genre", "Valeurs possibles : 'F' ou 'M'."),
         ({"salaire": 3000}, "salaire", "Champ inconnu."),
         (
@@ -190,6 +215,38 @@ def test_base_indisponible_repond_503_sans_prediction(
     }
 
 
+@pytest.mark.parametrize("erreur", [DataError, IntegrityError])
+@pytest.mark.parametrize(
+    ("methode", "chemin"), [("GET", "/health"), ("POST", "/predict")]
+)
+def test_ordre_refuse_par_la_base_repond_500_et_non_503(
+    client, monkeypatch, erreur, methode, chemin
+):
+    # La base répond, mais refuse l'ordre : elle n'est pas indisponible.
+    def session_qui_refuse():
+        raise erreur("INSERT INTO demandes", {}, Exception("ordre refusé"))
+
+    monkeypatch.setitem(app.dependency_overrides, obtenir_session, session_qui_refuse)
+
+    reponse = client.request(methode, chemin, json=EXEMPLE, headers={"X-API-Key": "x"})
+
+    assert reponse.status_code == 500
+    assert reponse.json() == {
+        "detail": "Erreur de la base de données : aucune prédiction n'est servie."
+    }
+
+
+@pytest.mark.parametrize(
+    ("methode", "chemin"),
+    [("GET", "/health"), ("POST", "/predict"), ("GET", "/schema.json")],
+)
+def test_reponses_json_declarent_l_encodage_utf8(client, methode, chemin):
+    # Sans clé, /predict répond 401 : les erreurs sont concernées elles aussi.
+    reponse = client.request(methode, chemin, json=EXEMPLE)
+
+    assert reponse.headers["content-type"] == "application/json; charset=utf-8"
+
+
 def test_swagger_documente_les_deux_routes(client):
     schema = client.get("/schema.json").json()
 
@@ -200,6 +257,7 @@ def test_swagger_documente_les_deux_routes(client):
         "200",
         "401",
         "422",
+        "500",
         "503",
     }
     assert schema["info"]["contact"]["name"] == "Angèle GOMIS"

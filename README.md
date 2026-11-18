@@ -98,7 +98,7 @@ rendent versionné, vérifié, testé et reproductible.
 | pandas | 3.0.6 | Manipulation des données |
 | numpy | 2.4.6 | Calcul numérique |
 | joblib | 1.6.0 | Sauvegarde et chargement du modèle |
-| FastAPI | 0.162 | API et documentation Swagger |
+| FastAPI | 0.163 | API et documentation Swagger |
 | Uvicorn | 0.54 | Serveur qui exécute l'API |
 | Pydantic | 2.14 | Validation des données reçues |
 | pydantic-settings | 2.16 | Paramètres lus dans l'environnement et validés |
@@ -149,12 +149,12 @@ uv run ruff format --check .
 | `tests/unitaires/` | Configuration, paramètres, features métier, pipeline, entraînement, schémas, explication du score |
 | `tests/fonctionnels/test_non_regression.py` | Le pipeline redonne les scores et les métriques du projet 4 sur les 294 collaborateurs du jeu de test |
 | `tests/fonctionnels/test_predicteur.py` | Artefact vérifié avant chargement, prédiction |
-| `tests/fonctionnels/test_api.py` | Routes de l'API : 200, 401, 422, 503, traces enregistrées, Swagger |
+| `tests/fonctionnels/test_api.py` | Routes de l'API : 200, 401, 422, 500, 503, traces enregistrées, Swagger |
 | `tests/fonctionnels/test_bdd.py` | Création de la base, insertion du jeu de données, clients de l'API |
 | `tests/fonctionnels/test_integrite_bdd.py` | Types, valeurs absentes, contraintes, cohérence métier, clés, insertion, suppression, droits du rôle de l'API |
 | `tests/fonctionnels/test_parcours_complet.py` | Un client envoie les exemples fournis, ses traces sont relues, puis il est désactivé |
 
-- 191 tests : 183 rapides et 8 marqués `lent`.
+- 215 tests : 206 rapides et 9 marqués `lent`.
 - Couverture : 100 % du code de `src`, branches comprises. Le seuil imposé est de
   80 % (`fail_under` dans `pyproject.toml`) : en dessous, la commande échoue, et la
   CI avec elle. Le rapport est dans
@@ -179,6 +179,10 @@ La base doit être démarrée et initialisée : l'API enregistre chaque demande 
 de calculer. La documentation interactive (Swagger) est sur <http://localhost:8000/docs> : chaque
 route y est décrite, avec ses schémas et un exemple prêt à envoyer.
 
+Le [guide d'utilisation](docs/guide_utilisateur.md) s'adresse aux utilisateurs de
+l'API : envoi d'une demande pas à pas, les 26 informations et leurs valeurs, lecture
+de la réponse et de la fiche RH, erreurs, appels en PowerShell, curl et Python.
+
 | Route | Rôle | Clé d'API |
 | --- | --- | --- |
 | `GET /health` | Indique que l'API, le modèle et la base répondent | Non |
@@ -193,6 +197,7 @@ Réponse de `POST /predict` :
   "decision": "Pas de risque détecté",
   "probabilite_depart": 0.0368,
   "probabilite_maintien": 0.9632,
+  "lecture": "Maintien (0) : 96,3 % ; départ (1) : 3,7 %",
   "seuil_decision": 0.41811496025861317,
   "seuil_probabilite": 0.1216,
   "version_modele": "0.1.0",
@@ -200,6 +205,7 @@ Réponse de `POST /predict` :
     {
       "variable": "nombre_experiences_precedentes",
       "contribution": 1.3447,
+      "impact_points": 2.7,
       "effet": "augmente le risque"
     }
   ]
@@ -215,24 +221,32 @@ Réponse de `POST /predict` :
 - `probabilite_depart` : le score corrigé du rééquilibrage, ramené au taux de départ
   de l'entraînement (16,2 %). C'est le chiffre à communiquer : ici, 3,7 % de risque
   de départ. `probabilite_maintien` en est le complément.
+- `lecture` : les deux probabilités en pourcentages, maintien (classe 0) et départ
+  (classe 1), prêtes à lire pour les RH.
 - `seuil_probabilite` : le seuil de décision exprimé en probabilité, environ 12 %.
   La correction conserve l'ordre des scores : l'alerte est la même, que l'on compare
   le score à 0,418 ou la probabilité à 12 %.
 - `facteurs` : la fiche RH, c'est-à-dire les cinq variables qui pèsent le plus dans
   ce score. Une contribution positive pousse vers le départ, une contribution
-  négative vers le maintien.
+  négative vers le maintien. Elle s'exprime en log-cote, l'échelle interne du
+  modèle. `impact_points` la traduit en points de probabilité de départ : ici,
+  les expériences précédentes ajoutent 2,7 points par rapport à un collaborateur
+  moyen.
 
 | Code | Signification |
 | --- | --- |
 | 200 | Prédiction calculée |
 | 401 | Clé d'API absente ou invalide |
 | 422 | Données refusées : chaque champ en cause est listé, avec la raison en français |
-| 503 | Base de données indisponible : sans trace possible, aucune prédiction n'est servie |
+| 500 | La base répond mais refuse l'enregistrement : aucune prédiction n'est servie |
+| 503 | Base de données injoignable : sans trace possible, aucune prédiction n'est servie |
 
 Les données sont refusées (422) quand un champ manque, est inconnu, hors bornes ou
-d'une modalité non prévue, ou quand le profil est incohérent. Les règles de
-cohérence reprennent les contrôles de mon analyse du projet 4, qui ne relevaient
-aucune violation sur les 1 470 collaborateurs :
+d'une modalité non prévue, ou quand le profil est incohérent. Chaque nombre a une
+borne haute, un peu au-dessus du maximum observé au projet 4 : par exemple 50 000
+pour le revenu mensuel, qui n'y dépasse pas 19 999. Les règles de cohérence
+reprennent les contrôles de mon analyse du projet 4, qui ne relevaient aucune
+violation sur les 1 470 collaborateurs :
 
 - l'ancienneté dans le poste, la dernière promotion et l'ancienneté sous le
   responsable actuel ne dépassent pas l'ancienneté dans l'entreprise ;
@@ -425,7 +439,7 @@ Une seule commande, trois services lancés dans l'ordre :
 P5_Deploiement_ML/
 ├── .github/workflows/     Workflows GitHub Actions : CI et déploiement
 ├── data/                  Données (non versionnées)
-├── docs/                  Modèle, schéma de la base, exemples, couverture, captures
+├── docs/                  Guide d'utilisation, modèle, schéma de la base, exemples, couverture, captures
 ├── models/                Modèle sauvegardé, métadonnées et découpage des données
 ├── notebooks/             Explorations
 ├── scripts/               Entraînement, base de données, clients de l'API
