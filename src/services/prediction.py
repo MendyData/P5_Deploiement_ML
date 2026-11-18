@@ -1,9 +1,11 @@
-"""Service de prédiction : du collaborateur validé à la réponse de l'API."""
+"""Service de prédiction : du collaborateur validé à la réponse tracée de l'API."""
 
 import numpy as np
 import pandas as pd
+from sqlalchemy.orm import Session
 
 from src import config
+from src.bdd.modeles import Demande, Reponse
 from src.modele.evaluation import probabilite_depart
 from src.modele.explication import contributions
 from src.modele.predicteur import PredicteurAttrition
@@ -13,9 +15,12 @@ from src.schemas.prediction import Facteur, Prediction
 # Nombre de variables présentées dans la fiche RH.
 NOMBRE_FACTEURS: int = 5
 
+# Champs de la réponse qui se déduisent des autres : ils ne sont pas stockés.
+CHAMPS_DEDUITS: set[str] = {"decision", "probabilite_maintien", "seuil_probabilite"}
+
 
 class ServicePrediction:
-    """Calcule la réponse de l'API pour un collaborateur.
+    """Calcule la réponse de l'API pour un collaborateur et en garde la trace.
 
     Les routes ne manipulent jamais le modèle : elles passent par ce service, qui
     garde le prédicteur chargé au démarrage.
@@ -41,14 +46,39 @@ class ServicePrediction:
             )[0]
         )
 
-    def predire(self, collaborateur: Collaborateur) -> Prediction:
-        """Calcule le score, l'alerte, la probabilité et la fiche RH d'un collaborateur.
+    def predire(
+        self, collaborateur: Collaborateur, utilisateur_id: int, session: Session
+    ) -> Prediction:
+        """Enregistre la demande, calcule la prédiction, puis enregistre la réponse.
+
+        La demande est enregistrée avant tout calcul : si la base ne répond pas,
+        l'erreur remonte et aucune prédiction n'est servie.
+
+        Args:
+            collaborateur: Les 26 informations, déjà validées par le schéma.
+            utilisateur_id: Identifiant du client qui fait la demande.
+            session: Session de la requête en cours.
+
+        Returns:
+            La réponse complète de POST /predict.
+        """
+        demande = Demande(**collaborateur.model_dump(), utilisateur_id=utilisateur_id)
+        session.add(demande)
+        session.commit()
+        prediction = self.calculer(collaborateur)
+        reponse = prediction.model_dump(exclude=CHAMPS_DEDUITS)
+        session.add(Reponse(demande_id=demande.id, **reponse))
+        session.commit()
+        return prediction
+
+    def calculer(self, collaborateur: Collaborateur) -> Prediction:
+        """Calcule score, alerte, probabilité et fiche RH, sans rien enregistrer.
 
         Args:
             collaborateur: Les 26 informations, déjà validées par le schéma.
 
         Returns:
-            La réponse complète de POST /predict.
+            La prédiction du modèle pour ce collaborateur.
         """
         donnees = pd.DataFrame([collaborateur.model_dump()])[config.COLONNES_ENTREE]
         resultat = self._predicteur.predire(donnees).iloc[0]

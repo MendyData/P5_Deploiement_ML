@@ -51,11 +51,12 @@ class Prediction(BaseModel):
 
 
 class Sante(BaseModel):
-    """Réponse de GET /health : le service répond et le modèle est chargé."""
+    """Réponse de GET /health : le service, le modèle et la base répondent."""
 
     statut: Literal["ok"]
     environnement: str
     version_modele: str
+    base_de_donnees: Literal["ok"]
 
 
 class ErreurChamp(BaseModel):
@@ -71,7 +72,7 @@ class ErreursValidation(BaseModel):
     detail: list[ErreurChamp]
 
 
-class ErreurAuthentification(BaseModel):
-    """Réponse 401 : clé d'API absente ou invalide."""
+class ErreurSimple(BaseModel):
+    """Réponse 401 (clé d'API refusée) ou 503 (base de données indisponible)."""
 
     detail: str

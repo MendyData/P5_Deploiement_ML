@@ -29,11 +29,12 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --no-dev --no-install-project
 
-# 6. Je copie mon code et le modèle, puis j'installe mon paquet src.
-#    README.md est lu par l'installation (pyproject.toml).
+# 6. Je copie mon code, le modèle et les scripts (dont la création de la base),
+#    puis j'installe mon paquet src. README.md est lu par l'installation.
 COPY README.md ./
 COPY src ./src
 COPY models ./models
+COPY scripts ./scripts
 RUN uv sync --locked --no-dev
 
 # 7. Je crée un utilisateur sans droits d'administration et je lui passe la
