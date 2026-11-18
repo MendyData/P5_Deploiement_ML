@@ -7,6 +7,41 @@ version 1.0.0 de la clôture.
 
 ## [Non publié]
 
+## [0.4.0] - 2026-11-18
+
+### Ajouté
+
+- Base PostgreSQL 16 dans Docker Compose : volume de données, contrôle de santé,
+  port lié au poste seulement.
+- Tables `collaborateurs`, `utilisateurs`, `demandes` et `reponses`
+  (`src/bdd/modeles.py`) : clés, unicité, `NOT NULL`, `CHECK` sur les modalités et
+  sur le score, index sur la date et le client ; schéma dans `docs/schema_bdd.md`.
+- Scripts `creer_base.py` (tables, relations, rôle de l'API aux droits limités),
+  `inserer_dataset.py` (jeu complet, contrôle du nombre de lignes),
+  `creer_utilisateur.py` et `interroger_base.py` ; exemples d'entrées dans
+  `docs/exemples/`.
+- Traçabilité : chaque demande est enregistrée avant le calcul, chaque réponse
+  est reliée à sa demande ; réponse 503 quand la base est indisponible.
+- Clients de l'API enregistrés en base, avec l'empreinte de leur clé.
+- Base PostgreSQL jetable dans la CI ; tests de l'initialisation et des traces sur
+  une base de test recréée à chaque exécution.
+- README : base de données, stockage et gestion des données, besoins analytiques.
+
+### Modifié
+
+- `GET /health` vérifie aussi la base.
+- Documentation interactive : schéma servi sous `/schema.json`, en-tête avec
+  l'autrice du projet et la licence MIT.
+- Connexion à la base : hôte `127.0.0.1` par défaut et délai de connexion de
+  5 secondes, pour que la réponse 503 arrive sans attente.
+- Docker Compose lance la base, son initialisation, puis l'API ; le workflow de
+  déploiement s'appuie sur Docker Compose.
+
+### Supprimé
+
+- Variable `API_KEY_HASH` et script `generer_cle_api.py`, remplacés par la table
+  `utilisateurs` et `creer_utilisateur.py`.
+
 ## [0.3.0] - 2026-11-17
 
 ### Ajouté
@@ -34,7 +69,7 @@ version 1.0.0 de la clôture.
 - Image Docker : le conteneur lance le serveur Uvicorn sur le port 8000.
 - Workflow de déploiement : le test de fumée interroge `/health`.
 
-## [0.2.0] - 2026-11-13
+## [0.2.0] - 2026-11-16
 
 ### Ajouté
 
@@ -54,7 +89,7 @@ version 1.0.0 de la clôture.
   tag (environnement de production).
 - README : environnements, CI/CD, déploiement local et badge de la CI.
 
-## [0.1.0] - 2026-11-12
+## [0.1.0] - 2026-11-13
 
 ### Ajouté
 

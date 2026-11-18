@@ -1,35 +1,41 @@
-"""Tests de l'API : santé, prédiction, authentification et données refusées."""
+"""Tests de l'API : santé, prédiction tracée, authentification, données refusées."""
 
 import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import func, select
+from sqlalchemy.exc import OperationalError
 
 from src import config
 from src.api.application import app
 from src.api.erreurs import traduire
-from src.api.securite import empreinte_cle
-from src.parametres import Parametres, obtenir_parametres
+from src.api.securite import creer_utilisateur
+from src.bdd.modeles import Demande, Reponse, Utilisateur
+from src.bdd.session import obtenir_session
 from src.schemas.collaborateur import EXEMPLE
 from src.services.prediction import NOMBRE_FACTEURS
 
-CLE = "cle-de-test"
-EN_TETE = {"X-API-Key": CLE}
-
-
-def parametres_de_test(empreinte: str) -> Parametres:
-    return Parametres(_env_file=None, app_env="test", api_key_hash=empreinte)
-
 
 @pytest.fixture(scope="module")
-def client():
-    """Client de l'API, modèle chargé une fois pour ce fichier, clé d'API connue."""
-    app.dependency_overrides[obtenir_parametres] = lambda: parametres_de_test(
-        empreinte_cle(CLE)
-    )
-    # Le bloc with déclenche le démarrage de l'application : le modèle est chargé.
+def client(parametres_bdd):
+    """Client de l'API : modèle chargé une fois pour ce fichier, base de test."""
+    # Le bloc with déclenche le démarrage de l'application.
     with TestClient(app) as client_api:
         yield client_api
-    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def en_tete(session_bdd):
+    """En-tête d'un client enregistré dans la base de test."""
+    return {"X-API-Key": creer_utilisateur(session_bdd, "client-de-test")}
+
+
+def compter(session, table):
+    return session.scalar(select(func.count()).select_from(table))
+
+
+def session_en_panne():
+    raise OperationalError("SELECT 1", {}, Exception("base arrêtée"))
 
 
 def test_health_repond_sans_cle(client):
@@ -40,13 +46,14 @@ def test_health_repond_sans_cle(client):
         "statut": "ok",
         "environnement": "test",
         "version_modele": "0.1.0",
+        "base_de_donnees": "ok",
     }
 
 
-def test_predict_renvoie_le_score_du_predicteur(client, predicteur):
+def test_predict_renvoie_le_score_du_predicteur(client, en_tete, predicteur):
     attendu = predicteur.predire(pd.DataFrame([EXEMPLE])).iloc[0]
 
-    reponse = client.post("/predict", json=EXEMPLE, headers=EN_TETE)
+    reponse = client.post("/predict", json=EXEMPLE, headers=en_tete)
 
     assert reponse.status_code == 200
     corps = reponse.json()
@@ -56,10 +63,10 @@ def test_predict_renvoie_le_score_du_predicteur(client, predicteur):
     assert corps["version_modele"] == predicteur.metadonnees.version_modele
 
 
-def test_predict_renvoie_la_probabilite_corrigee(client, predicteur):
+def test_predict_renvoie_la_probabilite_corrigee(client, en_tete, predicteur):
     attendu = predicteur.predire(pd.DataFrame([EXEMPLE])).iloc[0]
 
-    corps = client.post("/predict", json=EXEMPLE, headers=EN_TETE).json()
+    corps = client.post("/predict", json=EXEMPLE, headers=en_tete).json()
 
     probabilite = attendu[config.COL_PROBABILITE]
     assert corps["probabilite_depart"] == pytest.approx(probabilite, abs=1e-4)
@@ -69,8 +76,8 @@ def test_predict_renvoie_la_probabilite_corrigee(client, predicteur):
     assert corps["seuil_probabilite"] == pytest.approx(0.1215, abs=5e-4)
 
 
-def test_predict_decision_suit_l_alerte(client):
-    corps = client.post("/predict", json=EXEMPLE, headers=EN_TETE).json()
+def test_predict_decision_suit_l_alerte(client, en_tete):
+    corps = client.post("/predict", json=EXEMPLE, headers=en_tete).json()
 
     attendue = "Risque de départ" if corps["alerte"] else "Pas de risque détecté"
     assert corps["decision"] == attendue
@@ -79,8 +86,8 @@ def test_predict_decision_suit_l_alerte(client):
     )
 
 
-def test_predict_renvoie_la_fiche_rh_triee_par_poids(client):
-    facteurs = client.post("/predict", json=EXEMPLE, headers=EN_TETE).json()["facteurs"]
+def test_predict_renvoie_la_fiche_rh_triee_par_poids(client, en_tete):
+    facteurs = client.post("/predict", json=EXEMPLE, headers=en_tete).json()["facteurs"]
 
     poids = [abs(facteur["contribution"]) for facteur in facteurs]
     assert len(facteurs) == NOMBRE_FACTEURS
@@ -90,23 +97,36 @@ def test_predict_renvoie_la_fiche_rh_triee_par_poids(client):
         assert facteur["effet"] == f"{attendu} le risque"
 
 
-@pytest.mark.parametrize("en_tete", [{}, {"X-API-Key": "mauvaise-cle"}])
-def test_predict_sans_cle_valide_refuse(client, en_tete):
-    reponse = client.post("/predict", json=EXEMPLE, headers=en_tete)
+def test_predict_enregistre_la_demande_puis_la_reponse_reliee(
+    client, en_tete, session_bdd
+):
+    corps = client.post("/predict", json=EXEMPLE, headers=en_tete).json()
+
+    demande = session_bdd.scalars(select(Demande)).one()
+    reponse = session_bdd.scalars(select(Reponse)).one()
+    utilisateur = session_bdd.get(Utilisateur, demande.utilisateur_id)
+    assert utilisateur.nom == "client-de-test"
+    assert {champ: getattr(demande, champ) for champ in EXEMPLE} == EXEMPLE
+    assert reponse.demande_id == demande.id
+    assert reponse.score_risque == pytest.approx(corps["score_risque"])
+    assert reponse.probabilite_depart == pytest.approx(corps["probabilite_depart"])
+    assert reponse.facteurs == corps["facteurs"]
+
+
+@pytest.mark.parametrize("en_tete_recu", [{}, {"X-API-Key": "mauvaise-cle"}])
+def test_predict_sans_cle_valide_refuse_sans_trace(client, session_bdd, en_tete_recu):
+    reponse = client.post("/predict", json=EXEMPLE, headers=en_tete_recu)
 
     assert reponse.status_code == 401
     assert reponse.json() == {"detail": "Clé d'API absente ou invalide."}
+    assert compter(session_bdd, Demande) == 0
 
 
-def test_predict_refuse_tout_sans_empreinte_configuree(client, monkeypatch):
-    # monkeypatch remet la clé des tests en place à la fin de ce test.
-    monkeypatch.setitem(
-        app.dependency_overrides, obtenir_parametres, lambda: parametres_de_test("")
-    )
+def test_predict_client_desactive_refuse(client, en_tete, session_bdd):
+    session_bdd.scalars(select(Utilisateur)).one().actif = False
+    session_bdd.commit()
 
-    reponse = client.post("/predict", json=EXEMPLE, headers=EN_TETE)
-
-    assert reponse.status_code == 401
+    assert client.post("/predict", json=EXEMPLE, headers=en_tete).status_code == 401
 
 
 @pytest.mark.parametrize(
@@ -115,16 +135,8 @@ def test_predict_refuse_tout_sans_empreinte_configuree(client, monkeypatch):
         ({"age": 17}, "age", "La valeur doit être supérieure ou égale à 18."),
         ({"age": 71}, "age", "La valeur doit être inférieure ou égale à 70."),
         ({"age": "trente"}, "age", "Un nombre entier est attendu."),
-        (
-            {"revenu_mensuel": 0},
-            "revenu_mensuel",
-            "La valeur doit être supérieure à 0.",
-        ),
-        (
-            {"genre": "X"},
-            "genre",
-            "Valeur non autorisée. Valeurs possibles : 'F' ou 'M'.",
-        ),
+        ({"revenu_mensuel": 0}, "revenu_mensuel", "doit être supérieure à 0."),
+        ({"genre": "X"}, "genre", "Valeurs possibles : 'F' ou 'M'."),
         ({"salaire": 3000}, "salaire", "Champ inconnu."),
         (
             {"annees_dans_le_poste_actuel": 6},
@@ -134,9 +146,9 @@ def test_predict_refuse_tout_sans_empreinte_configuree(client, monkeypatch):
     ],
 )
 def test_predict_donnee_invalide_refusee_en_francais(
-    client, modification, champ, message
+    client, en_tete, modification, champ, message
 ):
-    reponse = client.post("/predict", json={**EXEMPLE, **modification}, headers=EN_TETE)
+    reponse = client.post("/predict", json={**EXEMPLE, **modification}, headers=en_tete)
 
     assert reponse.status_code == 422
     detail = reponse.json()["detail"][0]
@@ -144,10 +156,16 @@ def test_predict_donnee_invalide_refusee_en_francais(
     assert detail["champ"] == (champ or "corps de la requête")
 
 
-def test_predict_champ_manquant_refuse(client):
+def test_predict_donnee_invalide_ne_laisse_aucune_trace(client, en_tete, session_bdd):
+    client.post("/predict", json={**EXEMPLE, "age": 17}, headers=en_tete)
+
+    assert compter(session_bdd, Demande) == 0
+
+
+def test_predict_champ_manquant_refuse(client, en_tete):
     incomplet = {cle: valeur for cle, valeur in EXEMPLE.items() if cle != "poste"}
 
-    reponse = client.post("/predict", json=incomplet, headers=EN_TETE)
+    reponse = client.post("/predict", json=incomplet, headers=en_tete)
 
     assert reponse.status_code == 422
     assert reponse.json() == {
@@ -155,16 +173,37 @@ def test_predict_champ_manquant_refuse(client):
     }
 
 
+@pytest.mark.parametrize(
+    ("methode", "chemin"), [("GET", "/health"), ("POST", "/predict")]
+)
+def test_base_indisponible_repond_503_sans_prediction(
+    client, monkeypatch, methode, chemin
+):
+    # monkeypatch remet la vraie session en place à la fin de ce test.
+    monkeypatch.setitem(app.dependency_overrides, obtenir_session, session_en_panne)
+
+    reponse = client.request(methode, chemin, json=EXEMPLE, headers={"X-API-Key": "x"})
+
+    assert reponse.status_code == 503
+    assert reponse.json() == {
+        "detail": "Base de données indisponible : aucune prédiction n'est servie."
+    }
+
+
 def test_swagger_documente_les_deux_routes(client):
-    schema = client.get("/openapi.json").json()
+    schema = client.get("/schema.json").json()
 
     assert client.get("/docs").status_code == 200
+    assert client.get("/openapi.json").status_code == 404
     assert set(schema["paths"]) == {"/health", "/predict"}
     assert set(schema["paths"]["/predict"]["post"]["responses"]) == {
         "200",
         "401",
         "422",
+        "503",
     }
+    assert schema["info"]["contact"]["name"] == "Angèle GOMIS"
+    assert schema["info"]["license"]["name"] == "MIT"
 
 
 def test_erreur_de_type_non_prevu_garde_son_message_d_origine():

@@ -1,4 +1,5 @@
-# Déploiement : je construis l'image Docker, puis je vérifie que l'API répond.
+# Déploiement : je construis l'image, je démarre la base et l'API avec Docker
+# Compose, puis je vérifie que l'API répond.
 # - un push sur la branche staging utilise l'environnement GitHub « test » ;
 # - un tag vX.Y.Z, posé sur production, utilise l'environnement « production ».
 name: Déploiement
@@ -20,36 +21,39 @@ jobs:
     # Je choisis l'environnement GitHub : « production » pour un tag, « test » sinon.
     # Ses variables et ses secrets sont déclarés dans Settings, Environments.
     environment: ${{ github.ref_type == 'tag' && 'production' || 'test' }}
-    env:
-      # Nom de l'image : p5-deploiement-ml:staging ou p5-deploiement-ml:v0.3.0.
-      IMAGE: p5-deploiement-ml:${{ github.ref_name }}
     steps:
       - name: Récupérer le code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # Docker suit le Dockerfile : l'installation est automatisée de bout en bout.
-      - name: Construire l'image
-        run: docker build --tag "$IMAGE" .
-
-      # Je lance l'API en arrière-plan. La variable et le secret viennent de
-      # l'environnement GitHub : « --env NOM » les transmet sans les écrire ici.
-      - name: Démarrer l'API
+      # Docker Compose lit ses réglages dans un fichier .env. Je l'écris ici à
+      # partir de la variable et des secrets de l'environnement GitHub : aucune
+      # valeur sensible n'est écrite dans ce fichier YAML.
+      - name: Écrire le fichier .env de l'environnement
         env:
           APP_ENV: ${{ vars.APP_ENV }}
-          API_KEY_HASH: ${{ secrets.API_KEY_HASH }}
-        run: >-
-          docker run --detach --name api --publish 8000:8000
-          --env APP_ENV --env API_KEY_HASH "$IMAGE"
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_API_PASSWORD: ${{ secrets.POSTGRES_API_PASSWORD }}
+        run: |
+          {
+            echo "APP_ENV=$APP_ENV"
+            echo "POSTGRES_PASSWORD=$POSTGRES_PASSWORD"
+            echo "POSTGRES_API_PASSWORD=$POSTGRES_API_PASSWORD"
+          } > .env
 
-      # Test de fumée : /health doit répondre. curl réessaie pendant le démarrage
-      # et échoue si la réponse n'est pas un succès.
+      # Compose suit docker-compose.yml : image construite, base démarrée, tables
+      # et rôle créés, API lancée. L'installation est automatisée de bout en bout.
+      - name: Construire l'image et démarrer la base et l'API
+        run: docker compose up --build --detach
+
+      # Test de fumée : /health doit répondre, ce qui prouve que l'API, le modèle
+      # et la base fonctionnent ensemble. curl réessaie pendant le démarrage.
       - name: Vérifier que l'API répond
         run: >-
           curl --fail --silent --show-error
-          --retry 10 --retry-delay 2 --retry-all-errors
+          --retry 20 --retry-delay 3 --retry-all-errors
           http://localhost:8000/health
 
-      # En cas d'échec, les journaux du conteneur disent pourquoi.
-      - name: Afficher les journaux de l'API
+      # En cas d'échec, les journaux des conteneurs disent pourquoi.
+      - name: Afficher les journaux
         if: always()
-        run: docker logs api
+        run: docker compose logs
