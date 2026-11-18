@@ -54,7 +54,7 @@ Dans ce dépôt, je le mets en production :
 | Paramètres par environnement | En place |
 | API FastAPI : `GET /health`, `POST /predict`, Swagger, clé d'API | En place |
 | Base PostgreSQL : jeu de données, clients de l'API, traces des échanges | En place |
-| Tests (128 tests, couverture de 100 % sur `src`) | En place |
+| Tests (191 tests, couverture de 100 % sur `src`, seuil imposé à 80 %) | En place |
 | Pipeline CI/CD (GitHub Actions) | En place |
 | Image Docker et lancement avec Docker Compose | En place |
 
@@ -107,20 +107,34 @@ cp .env.example .env
 ## Tests et qualité du code
 
 ```bash
+docker compose up -d db
 uv run pytest -m "not lent" --cov=src
 uv run ruff check .
 uv run ruff format --check .
 ```
 
-- Les tests rapides ne dépendent que de fichiers versionnés : ils passent sur un
-  clone neuf.
+| Tests | Ce qui est vérifié |
+| --- | --- |
+| `tests/unitaires/` | Configuration, paramètres, features métier, pipeline, entraînement, schémas, explication du score |
+| `tests/fonctionnels/test_non_regression.py` | Le pipeline redonne les scores et les métriques du projet 4 sur les 294 collaborateurs du jeu de test |
+| `tests/fonctionnels/test_predicteur.py` | Artefact vérifié avant chargement, prédiction |
+| `tests/fonctionnels/test_api.py` | Routes de l'API : 200, 401, 422, 503, traces enregistrées, Swagger |
+| `tests/fonctionnels/test_bdd.py` | Création de la base, insertion du jeu de données, clients de l'API |
+| `tests/fonctionnels/test_integrite_bdd.py` | Types, valeurs absentes, contraintes, cohérence métier, clés, insertion, suppression, droits du rôle de l'API |
+| `tests/fonctionnels/test_parcours_complet.py` | Un client envoie les exemples fournis, ses traces sont relues, puis il est désactivé |
+
+- 191 tests : 183 rapides et 8 marqués `lent`.
+- Couverture : 100 % du code de `src`, branches comprises. Le seuil imposé est de
+  80 % (`fail_under` dans `pyproject.toml`) : en dessous, la commande échoue, et la
+  CI avec elle. Le rapport est dans
+  [docs/rapport_couverture.md](docs/rapport_couverture.md).
+- Les tests de l'API et de la base ont besoin de PostgreSQL. Ils créent leur propre
+  base, `p5_test`, recréée vide à chaque exécution : la base de développement n'est
+  jamais touchée. Si PostgreSQL manque, ces tests échouent : ils ne sont pas ignorés.
 - Les tests marqués `lent` réentraînent le modèle ou lisent les données RH complètes.
   Ces données ne sont pas dans le dépôt : sans elles, ces tests sont ignorés.
-- Les tests de l'API et de la base ont besoin de PostgreSQL : `docker compose up -d db`.
-  Ils créent leur propre base, `p5_test`, recréée vide à chaque exécution : la base
-  de développement n'est jamais touchée.
-- Les tests de non-régression vérifient que le pipeline redonne les scores du
-  projet 4 sur les 294 collaborateurs du jeu de test.
+- Les données de test sont versionnées dans `tests/fixtures/` et les graines
+  aléatoires sont fixées : deux exécutions donnent le même résultat.
 
 ## Utilisation de l'API
 
@@ -183,6 +197,21 @@ Réponse de `POST /predict` :
 | 401 | Clé d'API absente ou invalide |
 | 422 | Données refusées : chaque champ en cause est listé, avec la raison en français |
 | 503 | Base de données indisponible : sans trace possible, aucune prédiction n'est servie |
+
+Les données sont refusées (422) quand un champ manque, est inconnu, hors bornes ou
+d'une modalité non prévue, ou quand le profil est incohérent. Les règles de
+cohérence reprennent les contrôles de mon analyse du projet 4, qui ne relevaient
+aucune violation sur les 1 470 collaborateurs :
+
+- l'ancienneté dans le poste, la dernière promotion et l'ancienneté sous le
+  responsable actuel ne dépassent pas l'ancienneté dans l'entreprise ;
+- l'ancienneté dans l'entreprise ne dépasse pas l'expérience totale ;
+- le revenu mensuel est positif ;
+- l'entrée dans la vie active (âge moins expérience totale) se fait à 16 ans au
+  plus tôt.
+
+La base vérifie les mêmes règles avec des contraintes `CHECK` : elles restent
+appliquées même si l'API change.
 
 Deux exemples d'entrées sont fournis dans `docs/exemples/` :
 
@@ -343,7 +372,7 @@ Une seule commande, trois services lancés dans l'ordre :
 P5_Deploiement_ML/
 ├── .github/workflows/     Workflows GitHub Actions : CI et déploiement
 ├── data/                  Données (non versionnées)
-├── docs/                  Schéma de la base, exemples d'entrées
+├── docs/                  Schéma de la base, exemples d'entrées, rapport de couverture
 ├── models/                Modèle sauvegardé, métadonnées et découpage des données
 ├── notebooks/             Explorations
 ├── scripts/               Entraînement, base de données, clients de l'API
@@ -357,7 +386,7 @@ P5_Deploiement_ML/
 │   └── services/          Service de prédiction
 ├── tests/
 │   ├── fixtures/          Données de référence versionnées
-│   ├── fonctionnels/      Non-régression, prédicteur, API et base
+│   ├── fonctionnels/      Non-régression, prédicteur, API, base, parcours complet
 │   └── unitaires/         Configuration, paramètres, schémas, pipeline, explication
 ├── .dockerignore          Fichiers laissés hors de l'image
 ├── .env.example           Modèle des variables d'environnement

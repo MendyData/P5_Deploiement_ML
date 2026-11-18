@@ -71,6 +71,7 @@ sur une seule définition.
 | Unicité | `utilisateurs.nom`, `utilisateurs.empreinte_cle`, `reponses.demande_id` | Une clé désigne un seul client ; une demande n'a qu'une réponse |
 | `NOT NULL` | Toutes les colonnes | Aucune information manquante |
 | `CHECK` sur les modalités | Les 7 colonnes de catégories | Seules les modalités connues du modèle sont acceptées |
+| `CHECK` de cohérence métier | `collaborateurs` et `demandes` | Les règles de l'API, vérifiées aussi par la base : poste, dernière promotion et responsable actuel dans l'ancienneté, ancienneté dans l'expérience totale, revenu positif, entrée dans la vie active à 16 ans au plus tôt |
 | `CHECK` sur le score et la probabilité | `reponses.score_risque`, `reponses.probabilite_depart` | Les deux restent entre 0 et 1 |
 | Types | Entiers, texte, booléens, dates avec fuseau, JSON | Une valeur du mauvais type est refusée |
 

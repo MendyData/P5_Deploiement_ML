@@ -29,14 +29,6 @@ Poste = Literal[tuple(config.CATEGORIES_NOMINALES["poste"])]
 StatutMarital = Literal[tuple(config.CATEGORIES_NOMINALES["statut_marital"])]
 DomaineEtude = Literal[tuple(config.CATEGORIES_NOMINALES["domaine_etude"])]
 
-# Une durée (à gauche) ne peut pas dépasser celle qui la contient (à droite).
-COHERENCES: list[tuple[str, str]] = [
-    ("annees_dans_le_poste_actuel", "annees_dans_l_entreprise"),
-    ("annees_depuis_la_derniere_promotion", "annees_dans_l_entreprise"),
-    ("annes_sous_responsable_actuel", "annees_dans_l_entreprise"),
-    ("annees_dans_l_entreprise", "annee_experience_totale"),
-]
-
 # Exemple affiché dans Swagger et repris par les tests.
 EXEMPLE: dict[str, int | str] = {
     "age": 31,
@@ -108,17 +100,24 @@ class Collaborateur(BaseModel):
 
     @model_validator(mode="after")
     def verifier_la_coherence_des_durees(self) -> Self:
-        """Refuse une durée supérieure à celle qui la contient.
+        """Refuse des durées incompatibles entre elles ou avec l'âge.
 
         Returns:
             Le collaborateur, inchangé, quand ses durées sont cohérentes.
 
         Raises:
             ValueError: Si, par exemple, l'ancienneté dans le poste dépasse
-                l'ancienneté dans l'entreprise.
+                l'ancienneté dans l'entreprise, ou si l'expérience totale
+                suppose une entrée dans la vie active avant 16 ans.
         """
-        for courte, longue in COHERENCES:
+        for courte, longue in config.COHERENCES_DUREES:
             if getattr(self, courte) > getattr(self, longue):
                 message = f"{courte} ne peut pas dépasser {longue}."
                 raise ValueError(message)
+        if self.age - self.annee_experience_totale < config.AGE_MINIMUM_VIE_ACTIVE:
+            message = (
+                "annee_experience_totale suppose une entrée dans la vie active "
+                f"avant {config.AGE_MINIMUM_VIE_ACTIVE} ans."
+            )
+            raise ValueError(message)
         return self
