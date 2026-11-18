@@ -18,12 +18,15 @@ et un déploiement automatisés.
 6. [Tests et qualité du code](#tests-et-qualité-du-code)
 7. [Utilisation de l'API](#utilisation-de-lapi)
 8. [Authentification](#authentification)
-9. [Environnements](#environnements)
-10. [Intégration et déploiement continus](#intégration-et-déploiement-continus)
-11. [Déploiement local](#déploiement-local)
-12. [Structure du projet](#structure-du-projet)
-13. [Organisation du dépôt](#organisation-du-dépôt)
-14. [Licence](#licence)
+9. [Base de données](#base-de-données)
+10. [Stockage et gestion des données](#stockage-et-gestion-des-données)
+11. [Besoins analytiques](#besoins-analytiques)
+12. [Environnements](#environnements)
+13. [Intégration et déploiement continus](#intégration-et-déploiement-continus)
+14. [Déploiement local](#déploiement-local)
+15. [Structure du projet](#structure-du-projet)
+16. [Organisation du dépôt](#organisation-du-dépôt)
+17. [Licence](#licence)
 
 ## À propos du projet
 
@@ -50,10 +53,10 @@ Dans ce dépôt, je le mets en production :
 | Pipeline d'inférence et prédicteur | En place |
 | Paramètres par environnement | En place |
 | API FastAPI : `GET /health`, `POST /predict`, Swagger, clé d'API | En place |
-| Tests (120 tests, couverture de 100 % sur `src`) | En place |
+| Base PostgreSQL : jeu de données, clients de l'API, traces des échanges | En place |
+| Tests (128 tests, couverture de 100 % sur `src`) | En place |
 | Pipeline CI/CD (GitHub Actions) | En place |
 | Image Docker et lancement avec Docker Compose | En place |
-| Base PostgreSQL | À venir |
 
 ## Technologies
 
@@ -68,6 +71,8 @@ Dans ce dépôt, je le mets en production :
 | Uvicorn | 0.54 | Serveur qui exécute l'API |
 | Pydantic | 2.14 | Validation des données reçues |
 | pydantic-settings | 2.16 | Paramètres lus dans l'environnement et validés |
+| PostgreSQL | 16 | Base de données, lancée dans Docker |
+| SQLAlchemy et psycopg | 2.1 et 3.3 | Accès à la base depuis Python |
 | uv | 0.12 ou plus | Environnement et dépendances |
 | Pytest et pytest-cov | 9.2 et 7.1 | Tests et couverture |
 | Ruff | 0.17 | Vérification et format du code |
@@ -96,6 +101,8 @@ cp .env.example .env
   de `uv.lock`. La commande échoue si le verrou n'est plus à jour.
 - `.env` contient les réglages de mon poste. Il est ignoré par Git : aucun secret
   n'est versionné. `.env.example` liste les variables attendues.
+- Dans `.env`, je renseigne les deux mots de passe de la base. `.env.example`
+  donne la commande qui les génère.
 
 ## Tests et qualité du code
 
@@ -109,21 +116,27 @@ uv run ruff format --check .
   clone neuf.
 - Les tests marqués `lent` réentraînent le modèle ou lisent les données RH complètes.
   Ces données ne sont pas dans le dépôt : sans elles, ces tests sont ignorés.
+- Les tests de l'API et de la base ont besoin de PostgreSQL : `docker compose up -d db`.
+  Ils créent leur propre base, `p5_test`, recréée vide à chaque exécution : la base
+  de développement n'est jamais touchée.
 - Les tests de non-régression vérifient que le pipeline redonne les scores du
   projet 4 sur les 294 collaborateurs du jeu de test.
 
 ## Utilisation de l'API
 
 ```bash
+docker compose up -d db
+uv run python scripts/creer_base.py
 uv run uvicorn src.api.application:app --reload
 ```
 
-La documentation interactive (Swagger) est sur <http://localhost:8000/docs> : chaque
+La base doit être démarrée et initialisée : l'API enregistre chaque demande avant
+de calculer. La documentation interactive (Swagger) est sur <http://localhost:8000/docs> : chaque
 route y est décrite, avec ses schémas et un exemple prêt à envoyer.
 
 | Route | Rôle | Clé d'API |
 | --- | --- | --- |
-| `GET /health` | Indique que l'API répond, son environnement et la version du modèle | Non |
+| `GET /health` | Indique que l'API, le modèle et la base répondent | Non |
 | `POST /predict` | Reçoit les 26 informations d'un collaborateur, renvoie sa prédiction | Oui |
 
 Réponse de `POST /predict` :
@@ -169,6 +182,13 @@ Réponse de `POST /predict` :
 | 200 | Prédiction calculée |
 | 401 | Clé d'API absente ou invalide |
 | 422 | Données refusées : chaque champ en cause est listé, avec la raison en français |
+| 503 | Base de données indisponible : sans trace possible, aucune prédiction n'est servie |
+
+Deux exemples d'entrées sont fournis dans `docs/exemples/` :
+
+```bash
+curl -X POST http://localhost:8000/predict -H "X-API-Key: MA_CLE" -H "Content-Type: application/json" -d @docs/exemples/collaborateur_avec_alerte.json
+```
 
 Le modèle est vérifié puis chargé une seule fois, au démarrage. Les données sont
 validées par le schéma `src/schemas/collaborateur.py`, dont les valeurs autorisées
@@ -180,16 +200,94 @@ viennent de `src/config.py`.
 Swagger, je la saisis avec le bouton « Authorize ».
 
 ```bash
-uv run python scripts/generer_cle_api.py
+uv run python scripts/creer_utilisateur.py equipe-rh
 ```
 
-- Le script affiche une clé tirée au hasard et son empreinte SHA-256. Je transmets
-  la clé au client et je colle l'empreinte dans `API_KEY_HASH`, dans mon `.env`.
-- Seule l'empreinte est conservée : la clé n'est écrite ni dans le code, ni dans le
-  dépôt, ni dans les journaux.
-- Les empreintes sont comparées en temps constant. Sans empreinte configurée,
-  toutes les demandes sont refusées.
-- En test et en production, `API_KEY_HASH` est un secret de l'environnement GitHub.
+- Le script enregistre le client dans la table `utilisateurs` et affiche sa clé,
+  une seule fois. Je la transmets au client.
+- Seule l'empreinte SHA-256 de la clé est enregistrée : la clé n'est écrite ni dans
+  le code, ni dans le dépôt, ni dans la base, ni dans les journaux.
+- Une clé absente, inconnue ou rattachée à un client désactivé (`actif` à faux)
+  reçoit la réponse 401.
+- Chaque demande est rattachée au client qui l'a envoyée.
+
+## Base de données
+
+PostgreSQL 16, lancé par Docker Compose. Le schéma complet, avec son diagramme, est
+dans [docs/schema_bdd.md](docs/schema_bdd.md).
+
+| Table | Contenu |
+| --- | --- |
+| `collaborateurs` | Jeu de données complet du projet 4 (1 470 lignes) |
+| `utilisateurs` | Clients de l'API et empreinte de leur clé |
+| `demandes` | Données reçues par `POST /predict`, enregistrées avant tout calcul |
+| `reponses` | Prédiction renvoyée, reliée à sa demande |
+
+| Script | Rôle |
+| --- | --- |
+| `scripts/creer_base.py` | Crée les tables, leurs relations et le rôle de l'API ; peut être relancé |
+| `scripts/inserer_dataset.py` | Insère le jeu de données complet et contrôle le nombre de lignes |
+| `scripts/creer_utilisateur.py` | Enregistre un client de l'API et affiche sa clé |
+| `scripts/interroger_base.py` | Affiche les volumes, les dernières demandes et le taux d'alerte |
+
+```bash
+docker compose up -d db
+uv run python scripts/creer_base.py
+uv run python scripts/inserer_dataset.py
+uv run python scripts/creer_utilisateur.py equipe-rh
+```
+
+Le jeu de données n'est pas dans le dépôt : `scripts/inserer_dataset.py` lit le
+fichier `data/interim/consolide.csv` de mon poste.
+
+## Stockage et gestion des données
+
+Parcours d'une demande :
+
+1. L'API identifie le client à partir de l'empreinte de sa clé.
+2. Les 26 informations sont validées ; une donnée invalide n'est pas enregistrée.
+3. La demande est enregistrée dans `demandes`.
+4. Le modèle calcule le score.
+5. La réponse est enregistrée dans `reponses`, reliée à la demande.
+6. La réponse part vers le client.
+
+Si la base ne répond pas, l'API renvoie 503 : aucune prédiction n'est servie sans
+trace.
+
+| Sujet | Règle |
+| --- | --- |
+| Droits | L'API se connecte avec un rôle qui lit et ajoute des traces, sans pouvoir modifier ni supprimer. Le rôle propriétaire ne sert qu'aux scripts. |
+| Données personnelles | Les données RH sont personnelles : aucun nom n'est stocké, l'accès passe par une clé, et la base n'est joignable que depuis le poste (`127.0.0.1`). |
+| Conservation | Les traces ne sont jamais modifiées. Une purge par période (`DELETE ... WHERE recue_le < date`) est réservée au rôle propriétaire. |
+| Sauvegarde | `docker compose exec db pg_dump -U proprietaire p5 > sauvegarde.sql` ; les données vivent dans le volume `donnees_postgres`. |
+| Secrets | Les mots de passe sont dans `.env` sur le poste et dans les secrets des environnements GitHub. |
+
+## Besoins analytiques
+
+Les traces répondent à trois besoins : suivre l'usage, suivre le modèle et
+préparer sa mise à jour.
+
+| Indicateur | Question | Source |
+| --- | --- | --- |
+| Nombre de demandes par jour et par client | L'API est-elle utilisée, et par qui ? | `demandes.recue_le`, `demandes.utilisateur_id` |
+| Taux d'alerte par semaine et par version du modèle | Le modèle alerte-t-il plus ou moins qu'avant ? | `reponses.alerte`, `reponses.version_modele` |
+| Probabilité moyenne de départ par trimestre, comparée aux départs réellement observés | La probabilité annoncée reste-t-elle juste ? | `reponses.probabilite_depart`, puis les départs constatés par les RH |
+| Score moyen par département et par poste | Où le risque se concentre-t-il ? | `demandes` jointe à `reponses` |
+| Écart entre les demandes et le jeu d'entraînement | Les données reçues ressemblent-elles encore à celles du projet 4 ? | `demandes` comparée à `collaborateurs` |
+| Demandes sans réponse | Une prédiction a-t-elle échoué ? | `demandes` sans ligne dans `reponses` |
+
+```sql
+SELECT date_trunc('week', r.calculee_le) AS semaine,
+       r.version_modele,
+       count(*) AS predictions,
+       round(avg(r.alerte::int)::numeric, 3) AS taux_alerte
+FROM reponses AS r
+GROUP BY semaine, r.version_modele
+ORDER BY semaine;
+```
+
+`scripts/interroger_base.py` exécute les requêtes de base. Un tableau de bord
+pourrait se brancher sur ces mêmes requêtes avec un rôle en lecture seule.
 
 ## Environnements
 
@@ -202,9 +300,9 @@ démarrage par `src/parametres.py` : une valeur inconnue arrête le démarrage.
 | Test | `test` | CI et branche `staging` | Environnement GitHub `test` |
 | Production | `production` | Version taguée `vX.Y.Z` | Environnement GitHub `production` |
 
-Aucun réglage sensible n'est écrit dans le code ni dans les workflows : les
-variables et les secrets de test et de production sont déclarés dans GitHub
-(Settings, Environments).
+Aucun réglage sensible n'est écrit dans le code ni dans les workflows : la
+variable `APP_ENV` et les secrets `POSTGRES_PASSWORD` et `POSTGRES_API_PASSWORD` de
+test et de production sont déclarés dans GitHub (Settings, Environments).
 
 ## Intégration et déploiement continus
 
@@ -212,12 +310,12 @@ Deux workflows GitHub Actions, dans `.github/workflows/` :
 
 | Workflow | Déclencheur | Ce qu'il fait |
 | --- | --- | --- |
-| `ci.yml` | Chaque push, sur toutes les branches | `uv sync --locked`, contrôles Ruff, tests avec couverture |
-| `deploiement.yml` | Push sur `staging`, tag `vX.Y.Z` | Construction de l'image Docker, puis test de fumée |
+| `ci.yml` | Chaque push, sur toutes les branches | `uv sync --locked`, contrôles Ruff, tests avec couverture sur une base PostgreSQL jetable |
+| `deploiement.yml` | Push sur `staging`, tag `vX.Y.Z` | Image construite, base et API lancées par Docker Compose, puis test de fumée |
 
 - Je ne fusionne une branche dans `main` que si la CI est verte.
-- Le test de fumée lance le conteneur, puis interroge `/health` : l'API doit
-  répondre avec le modèle chargé.
+- Le test de fumée interroge `/health` : l'API, le modèle et la base doivent
+  répondre ensemble.
 
 ## Déploiement local
 
@@ -225,13 +323,19 @@ Deux workflows GitHub Actions, dans `.github/workflows/` :
 docker compose up --build
 ```
 
+Une seule commande, trois services lancés dans l'ordre :
+
+1. `db` : la base PostgreSQL, dont les données sont gardées dans un volume.
+2. `initialisation` : crée les tables et le rôle de l'API, puis s'arrête.
+3. `api` : sert l'API sur <http://localhost:8000>, avec le rôle aux droits limités.
+
 - Docker construit l'image en suivant le `Dockerfile` : Python 3.11, dépendances
   figées de `uv.lock`, code, modèle, utilisateur sans droits d'administration.
-- Le conteneur lit `APP_ENV`, `LOG_LEVEL` et `API_KEY_HASH` dans le fichier `.env`,
-  vérifie puis charge le modèle, et sert l'API sur <http://localhost:8000>.
-- `docker compose down` arrête l'API.
-- L'installation est entièrement automatisée : aucune commande à lancer dans le
-  conteneur.
+- Les réglages et les mots de passe viennent du fichier `.env`.
+- Premier lancement : j'insère ensuite le jeu de données et je crée un client
+  (voir [Base de données](#base-de-données)).
+- `docker compose down` arrête tout en gardant les données ; `docker compose down -v`
+  supprime aussi le volume.
 
 ## Structure du projet
 
@@ -239,19 +343,21 @@ docker compose up --build
 P5_Deploiement_ML/
 ├── .github/workflows/     Workflows GitHub Actions : CI et déploiement
 ├── data/                  Données (non versionnées)
+├── docs/                  Schéma de la base, exemples d'entrées
 ├── models/                Modèle sauvegardé, métadonnées et découpage des données
 ├── notebooks/             Explorations
-├── scripts/               Entraînement, références du P4, vérification, clé d'API
+├── scripts/               Entraînement, base de données, clients de l'API
 ├── src/
 │   ├── config.py          Colonnes, modalités et chemins du projet
-│   ├── parametres.py      Paramètres par environnement et empreinte de la clé d'API
+│   ├── parametres.py      Paramètres par environnement et accès à la base
 │   ├── api/               Application FastAPI, authentification, erreurs
+│   ├── bdd/               Tables, connexion et initialisation de la base
 │   ├── modele/            Pipeline, features métier, prédicteur, explication
 │   ├── schemas/           Schémas Pydantic d'entrée et de sortie
 │   └── services/          Service de prédiction
 ├── tests/
 │   ├── fixtures/          Données de référence versionnées
-│   ├── fonctionnels/      Non-régression, prédicteur et API
+│   ├── fonctionnels/      Non-régression, prédicteur, API et base
 │   └── unitaires/         Configuration, paramètres, schémas, pipeline, explication
 ├── .dockerignore          Fichiers laissés hors de l'image
 ├── .env.example           Modèle des variables d'environnement
