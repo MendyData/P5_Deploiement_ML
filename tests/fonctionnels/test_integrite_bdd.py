@@ -93,6 +93,23 @@ def test_valeur_du_mauvais_type_refusee(session_bdd, utilisateur_id):
         session_bdd.execute(insert(Demande), ligne)
 
 
+def test_nombre_trop_grand_refuse_sans_les_valeurs_dans_le_message(
+    session_bdd, utilisateur_id
+):
+    # 3 milliards ne tient pas dans une colonne INTEGER. Le message d'erreur, écrit
+    # dans les journaux, ne doit reprendre aucune des informations RH envoyées.
+    trop_grand = {"revenu_mensuel": 3_000_000_000, "utilisateur_id": utilisateur_id}
+    ligne = {**EXEMPLE, **trop_grand}
+
+    with pytest.raises(DataError) as erreur:
+        session_bdd.execute(insert(Demande), ligne)
+
+    message = str(erreur.value)
+    assert "3000000000" not in message
+    assert EXEMPLE["poste"] not in message
+    assert EXEMPLE["statut_marital"] not in message
+
+
 # --- Contraintes et clés ----------------------------------------------------
 
 
