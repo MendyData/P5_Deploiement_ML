@@ -7,6 +7,20 @@ version 1.0.0 de la clôture.
 
 ## [Non publié]
 
+## [0.6.0] - 2026-11-18
+
+### Ajouté
+
+- Documentation du modèle (`docs/modele.md`) : données, variables, seuil,
+  performances, limites, maintenance et protocole de mise à jour.
+- README : architecture avec son diagramme, aperçu en captures, résumé du modèle,
+  choix techniques et sommaire complet.
+- Captures de Swagger et d'une réponse de l'API dans `docs/captures/`.
+
+### Modifié
+
+- README : la section Avancement laisse la place à l'architecture.
+
 ## [0.5.0] - 2026-11-18
 
 ### Ajouté
