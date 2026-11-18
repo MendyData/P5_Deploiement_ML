@@ -108,9 +108,10 @@ conversion en probabilité (`src/modele/explication.py`).
   un score est visible dans la fiche RH.
 - Le jeu d'entraînement est petit (1 176 collaborateurs) et vient d'une seule
   entreprise : le modèle ne se transpose pas tel quel ailleurs.
-- L'API accepte des valeurs un peu plus larges que celles du jeu d'entraînement
-  (par exemple un âge jusqu'à 70 ans) : loin des valeurs connues, le score est
-  moins fiable.
+- Chaque nombre reçu par l'API a une borne haute, un peu au-dessus du maximum du
+  jeu d'entraînement (par exemple un âge jusqu'à 70 ans pour 60 observés, 20
+  formations pour 6) : au-delà, la demande est refusée. Près de ces bornes, loin
+  des valeurs connues, le score est moins fiable.
 
 ## Sécurité du chargement
 

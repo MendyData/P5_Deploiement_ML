@@ -230,9 +230,11 @@ Réponse de `POST /predict` :
 | 503 | Base de données indisponible : sans trace possible, aucune prédiction n'est servie |
 
 Les données sont refusées (422) quand un champ manque, est inconnu, hors bornes ou
-d'une modalité non prévue, ou quand le profil est incohérent. Les règles de
-cohérence reprennent les contrôles de mon analyse du projet 4, qui ne relevaient
-aucune violation sur les 1 470 collaborateurs :
+d'une modalité non prévue, ou quand le profil est incohérent. Chaque nombre a une
+borne haute, un peu au-dessus du maximum observé au projet 4 : par exemple 50 000
+pour le revenu mensuel, qui n'y dépasse pas 19 999. Les règles de cohérence
+reprennent les contrôles de mon analyse du projet 4, qui ne relevaient aucune
+violation sur les 1 470 collaborateurs :
 
 - l'ancienneté dans le poste, la dernière promotion et l'ancienneté sous le
   responsable actuel ne dépassent pas l'ancienneté dans l'entreprise ;

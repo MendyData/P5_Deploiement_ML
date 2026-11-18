@@ -1,5 +1,6 @@
 """Tests du schéma d'entrée : références acceptées, données invalides refusées."""
 
+import pandas as pd
 import pytest
 from pydantic import ValidationError
 
@@ -9,6 +10,28 @@ from src.schemas.collaborateur import EXEMPLE, Collaborateur
 
 def test_champs_du_schema_identiques_aux_colonnes_du_pipeline():
     assert set(Collaborateur.model_fields) == set(config.COLONNES_ENTREE)
+
+
+def test_chaque_nombre_a_une_borne_haute():
+    proprietes = Collaborateur.model_json_schema()["properties"]
+
+    sans_borne = [
+        nom
+        for nom, propriete in proprietes.items()
+        if propriete.get("type") == "integer" and "maximum" not in propriete
+    ]
+
+    assert sans_borne == []
+
+
+@pytest.mark.lent
+def test_les_1470_collaborateurs_du_projet_4_respectent_les_bornes():
+    if not config.FICHIER_CONSOLIDE.exists():
+        pytest.skip("Jeu consolidé absent : lancer scripts/generer_reference_p4.py.")
+    consolide = pd.read_csv(config.FICHIER_CONSOLIDE)
+
+    for ligne in consolide[config.COLONNES_ENTREE].to_dict(orient="records"):
+        Collaborateur(**ligne)
 
 
 def test_exemple_de_swagger_valide():
@@ -30,6 +53,12 @@ def test_collaborateurs_de_reference_tous_acceptes(jeu, request):
         ("age", None),
         ("age", "trente"),
         ("revenu_mensuel", 0),
+        ("revenu_mensuel", 50_001),
+        ("revenu_mensuel", 3_000_000_000),
+        ("nombre_experiences_precedentes", 21),
+        ("nombre_participation_pee", 11),
+        ("nb_formations_suivies", 21),
+        ("distance_domicile_travail", 201),
         ("satisfaction_employee_equipe", 5),
         ("niveau_education", 6),
         ("genre", "X"),

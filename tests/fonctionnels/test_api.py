@@ -136,6 +136,11 @@ def test_predict_client_desactive_refuse(client, en_tete, session_bdd):
         ({"age": 71}, "age", "La valeur doit être inférieure ou égale à 70."),
         ({"age": "trente"}, "age", "Un nombre entier est attendu."),
         ({"revenu_mensuel": 0}, "revenu_mensuel", "doit être supérieure à 0."),
+        (
+            {"revenu_mensuel": 3_000_000_000},
+            "revenu_mensuel",
+            "doit être inférieure ou égale à 50000.",
+        ),
         ({"genre": "X"}, "genre", "Valeurs possibles : 'F' ou 'M'."),
         ({"salaire": 3000}, "salaire", "Champ inconnu."),
         (
