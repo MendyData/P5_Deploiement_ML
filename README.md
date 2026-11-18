@@ -1,6 +1,7 @@
 # P5 : déployer le modèle de départ des collaborateurs
 
 [![CI](https://github.com/MendyData/P5_Deploiement_ML/actions/workflows/ci.yml/badge.svg)](https://github.com/MendyData/P5_Deploiement_ML/actions/workflows/ci.yml)
+![Couverture 100 %](https://img.shields.io/badge/couverture-100%25-brightgreen)
 ![Python 3.11](https://img.shields.io/badge/python-3.11-blue)
 ![Licence MIT](https://img.shields.io/badge/licence-MIT-green)
 
@@ -11,22 +12,25 @@ et un déploiement automatisés.
 ## Sommaire
 
 1. [À propos du projet](#à-propos-du-projet)
-2. [Avancement](#avancement)
-3. [Technologies](#technologies)
-4. [Prérequis](#prérequis)
-5. [Installation](#installation)
-6. [Tests et qualité du code](#tests-et-qualité-du-code)
-7. [Utilisation de l'API](#utilisation-de-lapi)
-8. [Authentification](#authentification)
-9. [Base de données](#base-de-données)
-10. [Stockage et gestion des données](#stockage-et-gestion-des-données)
-11. [Besoins analytiques](#besoins-analytiques)
-12. [Environnements](#environnements)
-13. [Intégration et déploiement continus](#intégration-et-déploiement-continus)
-14. [Déploiement local](#déploiement-local)
-15. [Structure du projet](#structure-du-projet)
-16. [Organisation du dépôt](#organisation-du-dépôt)
-17. [Licence](#licence)
+2. [Architecture](#architecture)
+3. [Aperçu](#aperçu)
+4. [Technologies](#technologies)
+5. [Prérequis](#prérequis)
+6. [Installation](#installation)
+7. [Tests et qualité du code](#tests-et-qualité-du-code)
+8. [Utilisation de l'API](#utilisation-de-lapi)
+9. [Authentification](#authentification)
+10. [Base de données](#base-de-données)
+11. [Stockage et gestion des données](#stockage-et-gestion-des-données)
+12. [Besoins analytiques](#besoins-analytiques)
+13. [Modèle](#modèle)
+14. [Environnements](#environnements)
+15. [Intégration et déploiement continus](#intégration-et-déploiement-continus)
+16. [Déploiement local](#déploiement-local)
+17. [Choix techniques](#choix-techniques)
+18. [Structure du projet](#structure-du-projet)
+19. [Organisation du dépôt](#organisation-du-dépôt)
+20. [Licence](#licence)
 
 ## À propos du projet
 
@@ -46,17 +50,44 @@ Dans ce dépôt, je le mets en production :
 - des tests automatisés et un pipeline CI/CD avec GitHub Actions ;
 - un déploiement local avec Docker Compose.
 
-## Avancement
+## Architecture
 
-| Brique | État |
-| --- | --- |
-| Pipeline d'inférence et prédicteur | En place |
-| Paramètres par environnement | En place |
-| API FastAPI : `GET /health`, `POST /predict`, Swagger, clé d'API | En place |
-| Base PostgreSQL : jeu de données, clients de l'API, traces des échanges | En place |
-| Tests (191 tests, couverture de 100 % sur `src`, seuil imposé à 80 %) | En place |
-| Pipeline CI/CD (GitHub Actions) | En place |
-| Image Docker et lancement avec Docker Compose | En place |
+```mermaid
+flowchart LR
+    client([Client RH]) -->|POST /predict et clé d'API| api
+    subgraph conteneur_api [Conteneur api]
+        api[FastAPI et Uvicorn] --> securite[Authentification]
+        api --> schema[Validation Pydantic]
+        api --> service[Service de prédiction]
+        service --> modele[Pipeline scikit-learn]
+    end
+    subgraph conteneur_db [Conteneur db]
+        db[(PostgreSQL)]
+    end
+    securite -->|client et empreinte de clé| db
+    service -->|demande, puis réponse| db
+```
+
+Parcours d'une prédiction :
+
+1. Le client envoie les 26 informations d'un collaborateur à `POST /predict`.
+2. Uvicorn reçoit la requête et la transmet à FastAPI.
+3. L'authentification retrouve le client par l'empreinte de sa clé : sinon 401.
+4. Pydantic valide les données : sinon 422, avec le champ en cause.
+5. La demande est enregistrée dans PostgreSQL.
+6. Le modèle, chargé une seule fois au démarrage, calcule le score, puis la
+   probabilité de départ.
+7. La réponse est enregistrée, reliée à la demande, puis renvoyée en JSON.
+
+Si la base ne répond pas, l'API renvoie 503 : aucune prédiction n'est servie sans
+trace. Git, GitHub Actions, Pytest et Docker entourent ce parcours : ils le
+rendent versionné, vérifié, testé et reproductible.
+
+## Aperçu
+
+![Documentation Swagger de l'API](docs/captures/swagger.png)
+
+![Réponse de POST /predict dans Swagger](docs/captures/predict_200.png)
 
 ## Technologies
 
@@ -157,12 +188,12 @@ Réponse de `POST /predict` :
 
 ```json
 {
-  "score_risque": 0.1655,
+  "score_risque": 0.16551705606640005,
   "alerte": false,
   "decision": "Pas de risque détecté",
   "probabilite_depart": 0.0368,
   "probabilite_maintien": 0.9632,
-  "seuil_decision": 0.4181,
+  "seuil_decision": 0.41811496025861317,
   "seuil_probabilite": 0.1216,
   "version_modele": "0.1.0",
   "facteurs": [
@@ -276,7 +307,7 @@ Parcours d'une demande :
 1. L'API identifie le client à partir de l'empreinte de sa clé.
 2. Les 26 informations sont validées ; une donnée invalide n'est pas enregistrée.
 3. La demande est enregistrée dans `demandes`.
-4. Le modèle calcule le score.
+4. Le modèle calcule le score et la probabilité de départ.
 5. La réponse est enregistrée dans `reponses`, reliée à la demande.
 6. La réponse part vers le client.
 
@@ -317,6 +348,14 @@ ORDER BY semaine;
 
 `scripts/interroger_base.py` exécute les requêtes de base. Un tableau de bord
 pourrait se brancher sur ces mêmes requêtes avec un rôle en lecture seule.
+
+## Modèle
+
+Régression logistique du projet 4, réglée pour manquer peu de départs : sur les 294
+collaborateurs du jeu de test, 36 départs sur 47 sont signalés (rappel de 0,77),
+au prix de fausses alertes assumées (précision de 0,36). Les données, les
+variables, le seuil, les limites, la maintenance et le protocole de mise à jour
+sont décrits dans [docs/modele.md](docs/modele.md).
 
 ## Environnements
 
@@ -366,13 +405,27 @@ Une seule commande, trois services lancés dans l'ordre :
 - `docker compose down` arrête tout en gardant les données ; `docker compose down -v`
   supprime aussi le volume.
 
+## Choix techniques
+
+| Choix | Raison | Alternative écartée |
+| --- | --- | --- |
+| uv, `pyproject.toml` et `uv.lock` | Mêmes versions sur le poste, dans la CI et dans l'image | pip et `requirements.txt` tenu à la main |
+| Un seul pipeline scikit-learn | La préparation et le modèle forment un artefact : mêmes scores qu'au projet 4 | Préparation recodée dans l'API |
+| Probabilité corrigée du rééquilibrage | Un pourcentage lisible par les RH, sans toucher au modèle du projet 4 ni à son rappel | Réentraîner sans `class_weight="balanced"` : même calibration, rappel de 0,72 au lieu de 0,77 |
+| FastAPI et Pydantic | Validation et documentation Swagger produites à partir du code | Flask et validation écrite à la main |
+| Clé d'API, empreinte SHA-256 | Clé tirée au hasard, rien en clair, adapté à un appel entre applications | Mot de passe et jeton JWT |
+| PostgreSQL, deux rôles | Contraintes fortes ; l'API ne peut ni modifier ni supprimer | SQLite, sans rôles |
+| Demande enregistrée avant le calcul | Aucune prédiction sans trace ; 503 si la base ne répond pas | Journal dans un fichier |
+| Trois branches et GitHub Actions | Chaque version passe par le test avant la production | Déploiement à la main |
+| Docker Compose | Une commande, la même installation partout | Installation manuelle de PostgreSQL et de Python |
+
 ## Structure du projet
 
 ```text
 P5_Deploiement_ML/
 ├── .github/workflows/     Workflows GitHub Actions : CI et déploiement
 ├── data/                  Données (non versionnées)
-├── docs/                  Schéma de la base, exemples d'entrées, rapport de couverture
+├── docs/                  Modèle, schéma de la base, exemples, couverture, captures
 ├── models/                Modèle sauvegardé, métadonnées et découpage des données
 ├── notebooks/             Explorations
 ├── scripts/               Entraînement, base de données, clients de l'API
