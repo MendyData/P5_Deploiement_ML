@@ -179,6 +179,10 @@ La base doit être démarrée et initialisée : l'API enregistre chaque demande 
 de calculer. La documentation interactive (Swagger) est sur <http://localhost:8000/docs> : chaque
 route y est décrite, avec ses schémas et un exemple prêt à envoyer.
 
+Le [guide d'utilisation](docs/guide_utilisateur.md) s'adresse aux utilisateurs de
+l'API : envoi d'une demande pas à pas, les 26 informations et leurs valeurs, lecture
+de la réponse et de la fiche RH, erreurs, appels en PowerShell, curl et Python.
+
 | Route | Rôle | Clé d'API |
 | --- | --- | --- |
 | `GET /health` | Indique que l'API, le modèle et la base répondent | Non |
@@ -435,7 +439,7 @@ Une seule commande, trois services lancés dans l'ordre :
 P5_Deploiement_ML/
 ├── .github/workflows/     Workflows GitHub Actions : CI et déploiement
 ├── data/                  Données (non versionnées)
-├── docs/                  Modèle, schéma de la base, exemples, couverture, captures
+├── docs/                  Guide d'utilisation, modèle, schéma de la base, exemples, couverture, captures
 ├── models/                Modèle sauvegardé, métadonnées et découpage des données
 ├── notebooks/             Explorations
 ├── scripts/               Entraînement, base de données, clients de l'API
