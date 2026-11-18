@@ -6,12 +6,13 @@ from contextlib import asynccontextmanager
 from importlib import metadata
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy.orm import Session
+from starlette.middleware.base import RequestResponseEndpoint
 
 from src import config
 from src.api.erreurs import refuser_donnees_invalides
@@ -78,6 +79,31 @@ app = FastAPI(
     lifespan=cycle_de_vie,
 )
 app.add_exception_handler(RequestValidationError, refuser_donnees_invalides)
+
+# Type de contenu des réponses JSON, encodage compris.
+JSON_UTF8: str = "application/json; charset=utf-8"
+
+
+@app.middleware("http")
+async def preciser_l_encodage(
+    requete: Request, suite: RequestResponseEndpoint
+) -> Response:
+    """Déclare l'encodage UTF-8 de chaque réponse JSON, erreurs comprises.
+
+    Sans cette précision, Windows PowerShell 5.1 lit la réponse dans un ancien
+    encodage et affiche « dÃ©part » au lieu de « départ ».
+
+    Args:
+        requete: Requête reçue, transmise telle quelle.
+        suite: Traitement de la requête par l'application.
+
+    Returns:
+        La réponse de l'application, avec l'encodage déclaré si elle est en JSON.
+    """
+    reponse = await suite(requete)
+    if reponse.headers.get("content-type") == "application/json":
+        reponse.headers["content-type"] = JSON_UTF8
+    return reponse
 
 
 # Les deux gestionnaires visent des erreurs de la base : pour chaque erreur, FastAPI

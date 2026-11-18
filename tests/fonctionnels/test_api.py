@@ -236,6 +236,17 @@ def test_ordre_refuse_par_la_base_repond_500_et_non_503(
     }
 
 
+@pytest.mark.parametrize(
+    ("methode", "chemin"),
+    [("GET", "/health"), ("POST", "/predict"), ("GET", "/schema.json")],
+)
+def test_reponses_json_declarent_l_encodage_utf8(client, methode, chemin):
+    # Sans clé, /predict répond 401 : les erreurs sont concernées elles aussi.
+    reponse = client.request(methode, chemin, json=EXEMPLE)
+
+    assert reponse.headers["content-type"] == "application/json; charset=utf-8"
+
+
 def test_swagger_documente_les_deux_routes(client):
     schema = client.get("/schema.json").json()
 
