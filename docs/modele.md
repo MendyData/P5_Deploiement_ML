@@ -140,7 +140,9 @@ métadonnées avant de le charger. Un écart arrête le démarrage de l'API.
    Le script écrit l'artefact et ses métadonnées (version, date, seuil, taux de
    départ de l'entraînement, empreinte, versions des bibliothèques, métriques de
    test).
-3. **Validation.** `uv run pytest`, tests lents compris. Les métriques du nouveau
+3. **Validation.** `uv run python scripts/verifier_modele.py` confirme que le
+   nouvel artefact se charge : empreinte et versions des bibliothèques conformes
+   aux métadonnées. Puis `uv run pytest`, tests lents compris. Les métriques du nouveau
    modèle sont comparées à celles de la version en service ; le seuil est
    recalculé pour le rappel visé. Les références des tests de non-régression sont
    mises à jour dans le même commit que l'artefact.

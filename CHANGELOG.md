@@ -7,6 +7,15 @@ version 1.0.0 de la clôture.
 
 ## [Non publié]
 
+## [1.0.0] - 2026-11-18
+
+Première version complète de la preuve de concept.
+
+### Modifié
+
+- Protocole de mise à jour du modèle : la validation commence par
+  `scripts/verifier_modele.py`, qui confirme que le nouvel artefact se charge.
+
 ## [0.6.0] - 2026-11-18
 
 ### Ajouté
