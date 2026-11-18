@@ -154,7 +154,7 @@ uv run ruff format --check .
 | `tests/fonctionnels/test_integrite_bdd.py` | Types, valeurs absentes, contraintes, cohérence métier, clés, insertion, suppression, droits du rôle de l'API |
 | `tests/fonctionnels/test_parcours_complet.py` | Un client envoie les exemples fournis, ses traces sont relues, puis il est désactivé |
 
-- 191 tests : 183 rapides et 8 marqués `lent`.
+- 215 tests : 206 rapides et 9 marqués `lent`.
 - Couverture : 100 % du code de `src`, branches comprises. Le seuil imposé est de
   80 % (`fail_under` dans `pyproject.toml`) : en dessous, la commande échoue, et la
   CI avec elle. Le rapport est dans
