@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from importlib import metadata
 from typing import Annotated
 
-from fastapi import Body, Depends, FastAPI, Request, Response
+from fastapi import Body, Depends, FastAPI, HTTPException, Path, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
@@ -15,9 +15,14 @@ from sqlalchemy.orm import Session
 from starlette.middleware.base import RequestResponseEndpoint
 
 from src import config
-from src.api.documentation import DESCRIPTION_PREDICT, EXEMPLES_PREDICT
+from src.api.documentation import (
+    DESCRIPTION_PREDICT,
+    DESCRIPTION_PREDICT_IDENTIFIANT,
+    EXEMPLES_PREDICT,
+)
 from src.api.erreurs import refuser_donnees_invalides
 from src.api.securite import utilisateur_courant
+from src.bdd.lecture import lire_collaborateur
 from src.bdd.modeles import Utilisateur
 from src.bdd.session import creer_moteur, obtenir_session
 from src.modele.predicteur import PredicteurAttrition
@@ -63,9 +68,10 @@ app = FastAPI(
     title="API de prédiction des départs",
     description=(
         "Estime le risque de départ d'un collaborateur à partir de 26 "
-        "informations RH. La route /predict demande une clé d'API, à saisir "
-        "avec le bouton Authorize. Chaque demande et chaque réponse sont "
-        "enregistrées."
+        "informations RH, envoyées en JSON, ou à partir de l'identifiant d'un "
+        "collaborateur déjà en base. Les routes de prédiction demandent une clé "
+        "d'API, à saisir avec le bouton Authorize. Chaque demande et chaque "
+        "réponse sont enregistrées."
     ),
     version=metadata.version(config.NOM_PROJET),
     # Description technique de l'API, lue par la page Swagger : elle est servie
@@ -204,4 +210,39 @@ def predire(
     session: Annotated[Session, Depends(obtenir_session)],
 ) -> Prediction:
     """Renvoie le score, l'alerte, la probabilité de départ et leurs explications."""
+    return service.predire(collaborateur, utilisateur.id, session)
+
+
+@app.post(
+    "/predict/{id_employee}",
+    tags=["Prédiction"],
+    summary="Estimer le risque de départ d'un collaborateur connu, par son identifiant",
+    description=DESCRIPTION_PREDICT_IDENTIFIANT,
+    responses={
+        401: {"model": ErreurSimple, "description": "Clé d'API refusée"},
+        404: {"model": ErreurSimple, "description": "Collaborateur inconnu"},
+        422: {"model": ErreursValidation, "description": "Identifiant refusé"},
+        500: {"model": ErreurSimple, "description": "Erreur de la base"},
+        503: {"model": ErreurSimple, "description": "Base indisponible"},
+    },
+)
+def predire_par_identifiant(
+    id_employee: Annotated[
+        int, Path(ge=1, description="Identifiant du collaborateur.", examples=[1])
+    ],
+    utilisateur: Annotated[Utilisateur, Depends(utilisateur_courant)],
+    service: Annotated[ServicePrediction, Depends(obtenir_service)],
+    session: Annotated[Session, Depends(obtenir_session)],
+) -> Prediction:
+    """Lit le collaborateur en base, puis suit le même parcours que POST /predict.
+
+    Les informations lues passent par le même schéma que celles reçues en JSON :
+    une seule validation, une seule façon de tracer et de prédire.
+    """
+    valeurs = lire_collaborateur(session, id_employee)
+    if valeurs is None:
+        raise HTTPException(
+            status_code=404, detail=f"Collaborateur {id_employee} inconnu."
+        )
+    collaborateur = Collaborateur.model_validate(valeurs)
     return service.predire(collaborateur, utilisateur.id, session)

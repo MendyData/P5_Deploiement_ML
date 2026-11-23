@@ -126,7 +126,26 @@ désignent la même personne : `id_employee` 1, `eval_number` E_1 et
 (`annes_sous_responsable_actuel`) |
 
 Les exemples « Collaborateur 1 » et « Collaborateur 2 » ci-dessous sont les deux
-premières lignes des extraits, ainsi assemblées.
+premières lignes des extraits, ainsi assemblées. Pour un collaborateur déjà en
+base, `POST /predict/{{id_employee}}` évite de saisir ses 26 informations.
+"""
+
+DESCRIPTION_PREDICT_IDENTIFIANT: str = """
+Renvoie la même réponse que `POST /predict`, pour un collaborateur de la table
+`collaborateurs` (jeu du projet 4, 1 470 collaborateurs), désigné par son seul
+`id_employee`.
+
+| Étape | Détail |
+| --- | --- |
+| Lecture | Les 26 informations sont lues en base ; l'identifiant et le départ observé \
+ne rejoignent pas le calcul |
+| Validation | Même schéma que `POST /predict` |
+| Trace | La demande et la réponse sont enregistrées comme pour `POST /predict` |
+| Identifiant inconnu | 404 |
+
+Ces collaborateurs ont servi à construire le modèle : hors des 294 du jeu de test,
+leur prédiction est optimiste. Cette route sert à la démonstration et au contrôle,
+pas à l'évaluation du modèle.
 """
 
 # Exemples proposés dans la liste déroulante de Swagger et affichés par ReDoc.

@@ -190,6 +190,7 @@ de la réponse et de la fiche RH, erreurs, appels en PowerShell, curl et Python.
 | --- | --- | --- |
 | `GET /health` | Indique que l'API, le modèle et la base répondent | Non |
 | `POST /predict` | Reçoit les 26 informations d'un collaborateur, renvoie sa prédiction | Oui |
+| `POST /predict/{id_employee}` | Même prédiction pour un collaborateur déjà en base, désigné par son identifiant ; 404 s'il est inconnu | Oui |
 
 Réponse de `POST /predict` :
 
@@ -273,7 +274,7 @@ viennent de `src/config.py`.
 
 ## Authentification
 
-`POST /predict` demande une clé d'API, envoyée dans l'en-tête `X-API-Key`. Dans
+`POST /predict` et `POST /predict/{id_employee}` demandent une clé d'API, envoyée dans l'en-tête `X-API-Key`. Dans
 Swagger, je la saisis avec le bouton « Authorize ».
 
 ```bash
