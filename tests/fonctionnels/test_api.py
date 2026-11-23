@@ -1,4 +1,10 @@
-"""Tests de l'API : santé, prédiction tracée, authentification, données refusées."""
+"""Tests de l'API : santé, prédiction tracée, authentification, données refusées.
+
+Les deux portes de prédiction sont couvertes : les 26 informations en JSON, ou
+l'identifiant d'un collaborateur déjà en base.
+"""
+
+import json
 
 import pandas as pd
 import pytest
@@ -10,6 +16,7 @@ from src import config
 from src.api.application import app
 from src.api.erreurs import traduire
 from src.api.securite import creer_utilisateur
+from src.bdd.initialisation import inserer_dataset
 from src.bdd.modeles import Demande, Reponse, Utilisateur
 from src.bdd.session import obtenir_session
 from src.schemas.collaborateur import EXEMPLE
@@ -199,7 +206,8 @@ def test_predict_champ_manquant_refuse(client, en_tete):
 
 
 @pytest.mark.parametrize(
-    ("methode", "chemin"), [("GET", "/health"), ("POST", "/predict")]
+    ("methode", "chemin"),
+    [("GET", "/health"), ("POST", "/predict"), ("POST", "/predict/1")],
 )
 def test_base_indisponible_repond_503_sans_prediction(
     client, monkeypatch, methode, chemin
@@ -217,7 +225,8 @@ def test_base_indisponible_repond_503_sans_prediction(
 
 @pytest.mark.parametrize("erreur", [DataError, IntegrityError])
 @pytest.mark.parametrize(
-    ("methode", "chemin"), [("GET", "/health"), ("POST", "/predict")]
+    ("methode", "chemin"),
+    [("GET", "/health"), ("POST", "/predict"), ("POST", "/predict/1")],
 )
 def test_ordre_refuse_par_la_base_repond_500_et_non_503(
     client, monkeypatch, erreur, methode, chemin
@@ -247,15 +256,23 @@ def test_reponses_json_declarent_l_encodage_utf8(client, methode, chemin):
     assert reponse.headers["content-type"] == "application/json; charset=utf-8"
 
 
-def test_swagger_documente_les_deux_routes(client):
+def test_swagger_documente_les_trois_routes(client):
     schema = client.get("/schema.json").json()
 
     assert client.get("/docs").status_code == 200
     assert client.get("/openapi.json").status_code == 404
-    assert set(schema["paths"]) == {"/health", "/predict"}
+    assert set(schema["paths"]) == {"/health", "/predict", "/predict/{id_employee}"}
     assert set(schema["paths"]["/predict"]["post"]["responses"]) == {
         "200",
         "401",
+        "422",
+        "500",
+        "503",
+    }
+    assert set(schema["paths"]["/predict/{id_employee}"]["post"]["responses"]) == {
+        "200",
+        "401",
+        "404",
         "422",
         "500",
         "503",
@@ -271,3 +288,63 @@ def test_erreur_de_type_non_prevu_garde_son_message_d_origine():
         "champ": "corps de la requête",
         "message": "Message d'origine",
     }
+
+
+@pytest.fixture
+def collaborateurs_en_base(session_bdd, reference_test_p4):
+    """Collaborateurs du test du P4, insérés dans la table collaborateurs."""
+    inserer_dataset(session_bdd.get_bind(), reference_test_p4)
+    return reference_test_p4
+
+
+def test_predict_par_identifiant_donne_la_meme_reponse_qu_en_json(
+    client, en_tete, collaborateurs_en_base
+):
+    premier = collaborateurs_en_base.iloc[0]
+    # to_json convertit les entiers numpy en nombres JSON ordinaires.
+    valeurs = json.loads(premier[config.COLONNES_ENTREE].to_json())
+
+    par_identifiant = client.post(
+        f"/predict/{int(premier[config.IDENTIFIANT])}", headers=en_tete
+    )
+    en_json = client.post("/predict", json=valeurs, headers=en_tete)
+
+    assert par_identifiant.status_code == 200
+    assert par_identifiant.json() == en_json.json()
+
+
+def test_predict_par_identifiant_trace_la_demande_puis_la_reponse(
+    client, en_tete, session_bdd, collaborateurs_en_base
+):
+    premier = collaborateurs_en_base.iloc[0]
+
+    client.post(f"/predict/{int(premier[config.IDENTIFIANT])}", headers=en_tete)
+
+    demande = session_bdd.scalars(select(Demande)).one()
+    assert demande.poste == premier["poste"]
+    assert demande.age == premier["age"]
+    assert session_bdd.scalars(select(Reponse)).one().demande_id == demande.id
+
+
+def test_predict_par_identifiant_inconnu_repond_404_sans_trace(
+    client, en_tete, session_bdd, collaborateurs_en_base
+):
+    reponse = client.post("/predict/999999", headers=en_tete)
+
+    assert reponse.status_code == 404
+    assert reponse.json() == {"detail": "Collaborateur 999999 inconnu."}
+    assert compter(session_bdd, Demande) == 0
+
+
+@pytest.mark.parametrize("en_tete_recu", [{}, {"X-API-Key": "mauvaise-cle"}])
+def test_predict_par_identifiant_sans_cle_valide_refuse(
+    client, session_bdd, collaborateurs_en_base, en_tete_recu
+):
+    reponse = client.post("/predict/1", headers=en_tete_recu)
+
+    assert reponse.status_code == 401
+    assert compter(session_bdd, Demande) == 0
+
+
+def test_predict_par_identifiant_negatif_refuse(client, en_tete):
+    assert client.post("/predict/0", headers=en_tete).status_code == 422

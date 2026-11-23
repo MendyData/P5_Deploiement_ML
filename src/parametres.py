@@ -24,7 +24,8 @@ class Parametres(BaseSettings):
             la CI et sur la branche staging, production pour une version livrée.
         log_level: Niveau de détail des journaux.
         postgres_host: Machine qui héberge PostgreSQL.
-        postgres_port: Port de PostgreSQL.
+        postgres_port: Port de PostgreSQL vu depuis le poste : 5433 pour la base
+            Docker, 5432 dans les conteneurs et dans la CI, qui le fixent.
         postgres_db: Nom de la base.
         postgres_user: Rôle propriétaire : il crée les tables et insère le jeu
             de données.
@@ -46,7 +47,9 @@ class Parametres(BaseSettings):
     # 127.0.0.1 plutôt que localhost : sous Windows, localhost essaie d'abord
     # l'adresse IPv6, sur laquelle Docker ne publie pas la base.
     postgres_host: str = "127.0.0.1"
-    postgres_port: int = 5432
+    # 5433 : port publié par Docker Compose, le 5432 du poste étant pris par le
+    # PostgreSQL installé sous Windows.
+    postgres_port: int = 5433
     postgres_db: str = "p5"
     postgres_user: str = "proprietaire"
     postgres_password: str = ""
