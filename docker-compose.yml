@@ -16,8 +16,10 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manque dans le fichier .env}
     ports:
       # 127.0.0.1 : la base n'est joignable que depuis mon poste, pour mes
-      # scripts et mes tests.
-      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+      # scripts et mes tests. Elle est publiée sur le port 5433 du poste, car le
+      # PostgreSQL installé sous Windows occupe déjà le 5432. Dans le conteneur,
+      # et donc pour l'API, la base reste sur 5432.
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
     volumes:
       # Les données vivent dans un volume : elles survivent à l'arrêt du conteneur.
       - donnees_postgres:/var/lib/postgresql/data

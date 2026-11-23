@@ -290,6 +290,11 @@ uv run python scripts/creer_utilisateur.py equipe-rh
 PostgreSQL 16, lancé par Docker Compose. Le schéma complet, avec son diagramme, est
 dans [docs/schema_bdd.md](docs/schema_bdd.md).
 
+Docker publie la base sur le port 5433 de mon poste (`127.0.0.1:5433`), car le
+PostgreSQL installé sous Windows occupe déjà le 5432. Dans le réseau Compose, l'API
+la joint toujours sur `db:5432`. La connexion avec `psql` ou pgAdmin et les requêtes
+les plus courantes sont décrites dans [docs/requetes_sql.md](docs/requetes_sql.md).
+
 | Table | Contenu |
 | --- | --- |
 | `collaborateurs` | Jeu de données complet du projet 4 (1 470 lignes) |
