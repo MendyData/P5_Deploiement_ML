@@ -48,9 +48,9 @@ erDiagram
 
 | Table | Rôle | Volume |
 | --- | --- | --- |
-| `collaborateurs` | Jeu de données complet du projet 4 : les 26 variables d'entrée et le départ observé | 1 470 lignes, fixe |
+| `collaborateurs` | Jeu de données complet du projet 4 : les 26 variables d'entrée et le départ observé ; lu par `POST /predict/{id_employee}` | 1 470 lignes, fixe |
 | `utilisateurs` | Clients autorisés à appeler l'API | Quelques lignes |
-| `demandes` | Données reçues par `POST /predict`, enregistrées avant tout calcul | Une ligne par appel accepté |
+| `demandes` | Données reçues par `POST /predict`, ou lues pour `POST /predict/{id_employee}`, enregistrées avant tout calcul | Une ligne par appel accepté |
 | `reponses` | Prédiction renvoyée, reliée à sa demande | Une ligne par demande servie |
 
 `reponses` garde le score, l'alerte et la probabilité de départ communiquée aux

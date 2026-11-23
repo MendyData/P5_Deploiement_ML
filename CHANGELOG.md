@@ -7,6 +7,28 @@ version 1.0.0 de la clôture.
 
 ## [Non publié]
 
+## [1.2.0] - 2026-11-23
+
+### Ajouté
+
+- `POST /predict/{id_employee}` : prédiction pour un collaborateur déjà enregistré
+  dans la table `collaborateurs`, désigné par son seul identifiant. Même schéma,
+  même clé d'API et même trace que `POST /predict` ; 404 si l'identifiant est
+  inconnu.
+- Swagger et ReDoc expliquent comment construire une demande à partir des trois
+  extraits RH d'origine, et proposent deux collaborateurs de ces extraits comme
+  exemples.
+- Requêtes SQL courantes (`docs/requetes_sql.md`) et diagramme de classes UML de
+  la base (`docs/schema_bdd_uml.md`).
+
+### Modifié
+
+- La base Docker est publiée sur le port 5433 du poste : le 5432 est déjà pris par
+  le PostgreSQL installé sous Windows. Les conteneurs et la CI restent sur 5432.
+- README, guide d'utilisation, schéma de la base et rapport de couverture
+  décrivent la nouvelle route.
+- Capture de Swagger : version 1.2.0 et ses trois routes.
+
 ## [1.1.0] - 2026-11-18
 
 ### Ajouté
