@@ -177,7 +177,10 @@ uv run uvicorn src.api.application:app --reload
 
 La base doit être démarrée et initialisée : l'API enregistre chaque demande avant
 de calculer. La documentation interactive (Swagger) est sur <http://localhost:8000/docs> : chaque
-route y est décrite, avec ses schémas et un exemple prêt à envoyer.
+route y est décrite, avec ses schémas et un exemple prêt à envoyer. La même
+documentation est lisible sur <http://localhost:8000/redoc>. La route `POST /predict`
+y explique comment construire une demande à partir des trois extraits RH d'origine,
+et propose deux collaborateurs de ces extraits, déjà assemblés.
 
 Le [guide d'utilisation](docs/guide_utilisateur.md) s'adresse aux utilisateurs de
 l'API : envoi d'une demande pas à pas, les 26 informations et leurs valeurs, lecture

@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from importlib import metadata
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, Request, Response
+from fastapi import Body, Depends, FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from starlette.middleware.base import RequestResponseEndpoint
 
 from src import config
+from src.api.documentation import DESCRIPTION_PREDICT, EXEMPLES_PREDICT
 from src.api.erreurs import refuser_donnees_invalides
 from src.api.securite import utilisateur_courant
 from src.bdd.modeles import Utilisateur
@@ -188,6 +189,7 @@ def sante(
     "/predict",
     tags=["Prédiction"],
     summary="Estimer le risque de départ d'un collaborateur",
+    description=DESCRIPTION_PREDICT,
     responses={
         401: {"model": ErreurSimple, "description": "Clé d'API refusée"},
         422: {"model": ErreursValidation, "description": "Données refusées"},
@@ -196,7 +198,7 @@ def sante(
     },
 )
 def predire(
-    collaborateur: Collaborateur,
+    collaborateur: Annotated[Collaborateur, Body(openapi_examples=EXEMPLES_PREDICT)],
     utilisateur: Annotated[Utilisateur, Depends(utilisateur_courant)],
     service: Annotated[ServicePrediction, Depends(obtenir_service)],
     session: Annotated[Session, Depends(obtenir_session)],
