@@ -177,7 +177,10 @@ uv run uvicorn src.api.application:app --reload
 
 La base doit être démarrée et initialisée : l'API enregistre chaque demande avant
 de calculer. La documentation interactive (Swagger) est sur <http://localhost:8000/docs> : chaque
-route y est décrite, avec ses schémas et un exemple prêt à envoyer.
+route y est décrite, avec ses schémas et un exemple prêt à envoyer. La même
+documentation est lisible sur <http://localhost:8000/redoc>. La route `POST /predict`
+y explique comment construire une demande à partir des trois extraits RH d'origine,
+et propose deux collaborateurs de ces extraits, déjà assemblés.
 
 Le [guide d'utilisation](docs/guide_utilisateur.md) s'adresse aux utilisateurs de
 l'API : envoi d'une demande pas à pas, les 26 informations et leurs valeurs, lecture
@@ -187,6 +190,7 @@ de la réponse et de la fiche RH, erreurs, appels en PowerShell, curl et Python.
 | --- | --- | --- |
 | `GET /health` | Indique que l'API, le modèle et la base répondent | Non |
 | `POST /predict` | Reçoit les 26 informations d'un collaborateur, renvoie sa prédiction | Oui |
+| `POST /predict/{id_employee}` | Même prédiction pour un collaborateur déjà en base, désigné par son identifiant ; 404 s'il est inconnu | Oui |
 
 Réponse de `POST /predict` :
 
@@ -270,7 +274,7 @@ viennent de `src/config.py`.
 
 ## Authentification
 
-`POST /predict` demande une clé d'API, envoyée dans l'en-tête `X-API-Key`. Dans
+`POST /predict` et `POST /predict/{id_employee}` demandent une clé d'API, envoyée dans l'en-tête `X-API-Key`. Dans
 Swagger, je la saisis avec le bouton « Authorize ».
 
 ```bash
@@ -289,6 +293,11 @@ uv run python scripts/creer_utilisateur.py equipe-rh
 
 PostgreSQL 16, lancé par Docker Compose. Le schéma complet, avec son diagramme, est
 dans [docs/schema_bdd.md](docs/schema_bdd.md).
+
+Docker publie la base sur le port 5433 de mon poste (`127.0.0.1:5433`), car le
+PostgreSQL installé sous Windows occupe déjà le 5432. Dans le réseau Compose, l'API
+la joint toujours sur `db:5432`. La connexion avec `psql` ou pgAdmin et les requêtes
+les plus courantes sont décrites dans [docs/requetes_sql.md](docs/requetes_sql.md).
 
 | Table | Contenu |
 | --- | --- |
