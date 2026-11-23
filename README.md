@@ -146,15 +146,15 @@ uv run ruff format --check .
 
 | Tests | Ce qui est vérifié |
 | --- | --- |
-| `tests/unitaires/` | Configuration, paramètres, features métier, pipeline, entraînement, schémas, explication du score |
+| `tests/unitaires/` | Configuration, paramètres, features métier, pipeline, entraînement, schémas, explication du score, documentation de l'API |
 | `tests/fonctionnels/test_non_regression.py` | Le pipeline redonne les scores et les métriques du projet 4 sur les 294 collaborateurs du jeu de test |
 | `tests/fonctionnels/test_predicteur.py` | Artefact vérifié avant chargement, prédiction |
-| `tests/fonctionnels/test_api.py` | Routes de l'API : 200, 401, 422, 500, 503, traces enregistrées, Swagger |
+| `tests/fonctionnels/test_api.py` | Routes de l'API, en JSON et par identifiant : 200, 401, 404, 422, 500, 503, traces enregistrées, Swagger |
 | `tests/fonctionnels/test_bdd.py` | Création de la base, insertion du jeu de données, clients de l'API |
 | `tests/fonctionnels/test_integrite_bdd.py` | Types, valeurs absentes, contraintes, cohérence métier, clés, insertion, suppression, droits du rôle de l'API |
 | `tests/fonctionnels/test_parcours_complet.py` | Un client envoie les exemples fournis, ses traces sont relues, puis il est désactivé |
 
-- 215 tests : 206 rapides et 9 marqués `lent`.
+- 230 tests : 221 rapides et 9 marqués `lent`.
 - Couverture : 100 % du code de `src`, branches comprises. Le seuil imposé est de
   80 % (`fail_under` dans `pyproject.toml`) : en dessous, la commande échoue, et la
   CI avec elle. Le rapport est dans
@@ -176,9 +176,10 @@ uv run uvicorn src.api.application:app --reload
 ```
 
 La base doit être démarrée et initialisée : l'API enregistre chaque demande avant
-de calculer. La documentation interactive (Swagger) est sur <http://localhost:8000/docs> : chaque
-route y est décrite, avec ses schémas et un exemple prêt à envoyer. La même
-documentation est lisible sur <http://localhost:8000/redoc>. La route `POST /predict`
+de calculer. La documentation interactive (Swagger) est sur
+<http://localhost:8000/docs> : chaque route y est décrite, avec ses schémas et un
+exemple prêt à envoyer. La même documentation est lisible sur
+<http://localhost:8000/redoc>. La route `POST /predict`
 y explique comment construire une demande à partir des trois extraits RH d'origine,
 et propose deux collaborateurs de ces extraits, déjà assemblés.
 
@@ -268,14 +269,22 @@ Deux exemples d'entrées sont fournis dans `docs/exemples/` :
 curl -X POST http://localhost:8000/predict -H "X-API-Key: MA_CLE" -H "Content-Type: application/json" -d @docs/exemples/collaborateur_avec_alerte.json
 ```
 
+Pour un collaborateur déjà enregistré dans la table `collaborateurs`, son identifiant
+suffit :
+
+```bash
+curl -X POST http://localhost:8000/predict/1 -H "X-API-Key: MA_CLE"
+```
+
 Le modèle est vérifié puis chargé une seule fois, au démarrage. Les données sont
 validées par le schéma `src/schemas/collaborateur.py`, dont les valeurs autorisées
 viennent de `src/config.py`.
 
 ## Authentification
 
-`POST /predict` et `POST /predict/{id_employee}` demandent une clé d'API, envoyée dans l'en-tête `X-API-Key`. Dans
-Swagger, je la saisis avec le bouton « Authorize ».
+`POST /predict` et `POST /predict/{id_employee}` demandent une clé d'API, envoyée
+dans l'en-tête `X-API-Key`. Dans Swagger, je la saisis avec le bouton
+« Authorize ».
 
 ```bash
 uv run python scripts/creer_utilisateur.py equipe-rh
@@ -303,7 +312,7 @@ les plus courantes sont décrites dans [docs/requetes_sql.md](docs/requetes_sql.
 | --- | --- |
 | `collaborateurs` | Jeu de données complet du projet 4 (1 470 lignes) |
 | `utilisateurs` | Clients de l'API et empreinte de leur clé |
-| `demandes` | Données reçues par `POST /predict`, enregistrées avant tout calcul |
+| `demandes` | Données reçues par `POST /predict`, ou lues pour `POST /predict/{id_employee}`, enregistrées avant tout calcul |
 | `reponses` | Prédiction renvoyée, reliée à sa demande |
 
 | Script | Rôle |
@@ -329,6 +338,8 @@ Parcours d'une demande :
 
 1. L'API identifie le client à partir de l'empreinte de sa clé.
 2. Les 26 informations sont validées ; une donnée invalide n'est pas enregistrée.
+   Pour `POST /predict/{id_employee}`, elles sont lues dans `collaborateurs` ; un
+   identifiant inconnu reçoit 404, sans trace.
 3. La demande est enregistrée dans `demandes`.
 4. Le modèle calcule le score et la probabilité de départ.
 5. La réponse est enregistrée dans `reponses`, reliée à la demande.
@@ -423,6 +434,9 @@ Une seule commande, trois services lancés dans l'ordre :
 - Docker construit l'image en suivant le `Dockerfile` : Python 3.11, dépendances
   figées de `uv.lock`, code, modèle, utilisateur sans droits d'administration.
 - Les réglages et les mots de passe viennent du fichier `.env`.
+- Le port 8000 doit être libre : j'arrête d'abord un `uvicorn` lancé à la main
+  (`Ctrl+C`). Sous Windows, un second serveur démarre sans erreur sur un port déjà
+  occupé, et le navigateur peut rester branché sur l'ancien.
 - Premier lancement : j'insère ensuite le jeu de données et je crée un client
   (voir [Base de données](#base-de-données)).
 - `docker compose down` arrête tout en gardant les données ; `docker compose down -v`
@@ -455,15 +469,15 @@ P5_Deploiement_ML/
 ├── src/
 │   ├── config.py          Colonnes, modalités et chemins du projet
 │   ├── parametres.py      Paramètres par environnement et accès à la base
-│   ├── api/               Application FastAPI, authentification, erreurs
-│   ├── bdd/               Tables, connexion et initialisation de la base
+│   ├── api/               Application FastAPI, authentification, erreurs, documentation
+│   ├── bdd/               Tables, connexion, initialisation et lecture de la base
 │   ├── modele/            Pipeline, features métier, prédicteur, explication
 │   ├── schemas/           Schémas Pydantic d'entrée et de sortie
 │   └── services/          Service de prédiction
 ├── tests/
 │   ├── fixtures/          Données de référence versionnées
 │   ├── fonctionnels/      Non-régression, prédicteur, API, base, parcours complet
-│   └── unitaires/         Configuration, paramètres, schémas, pipeline, explication
+│   └── unitaires/         Configuration, paramètres, schémas, pipeline, explication, documentation
 ├── .dockerignore          Fichiers laissés hors de l'image
 ├── .env.example           Modèle des variables d'environnement
 ├── CHANGELOG.md           Journal des changements, version par version

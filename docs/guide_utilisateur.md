@@ -33,7 +33,7 @@ Elle aide à préparer un échange RH. Elle ne décide pas.
 | --- | --- |
 | Adresse de l'API | <http://localhost:8000> pour le déploiement local de la preuve de concept |
 | Clé d'API | Remise par l'administrateur, une seule fois, à la création du client. Elle ne peut pas être retrouvée : la ranger dans un gestionnaire de mots de passe. En cas de perte ou de fuite, demander à l'administrateur de désactiver la clé et d'en créer une autre. |
-| Informations du collaborateur | Les 26 informations de la [section 5](#les-26-informations-à-fournir), issues du SIRH, des évaluations et du sondage interne |
+| Informations du collaborateur | Les 26 informations de la [section 5](#les-26-informations-à-fournir), issues du SIRH, des évaluations et du sondage interne ; ou son seul identifiant, s'il est déjà enregistré |
 
 ## Vérifier que le service répond
 
@@ -53,9 +53,9 @@ une demande sans rien installer.
 
 | N° | Action | Résultat attendu |
 | --- | --- | --- |
-| 1 | Ouvrir <http://localhost:8000/docs> | La page liste deux routes : `GET /health` et `POST /predict` |
+| 1 | Ouvrir <http://localhost:8000/docs> | La page liste trois routes : `GET /health`, `POST /predict` et `POST /predict/{id_employee}` |
 | 2 | Cliquer sur « Authorize », coller la clé dans le champ `X-API-Key`, cliquer sur « Authorize », puis sur « Close » | Le cadenas se ferme : la clé accompagnera chaque demande |
-| 3 | Ouvrir `POST /predict`, puis cliquer sur « Try it out » | Le corps de la demande devient modifiable ; il est prérempli avec un exemple |
+| 3 | Ouvrir `POST /predict`, puis cliquer sur « Try it out » | Le corps de la demande devient modifiable ; il est prérempli avec un exemple. La liste « Examples » propose aussi deux collaborateurs des extraits RH d'origine |
 | 4 | Remplacer les valeurs de l'exemple par celles du collaborateur | Les noms des champs restent tels quels, fautes de frappe comprises (voir la section 5) |
 | 5 | Cliquer sur « Execute » | La réponse s'affiche sous « Server response », avec le code 200 |
 
@@ -65,6 +65,21 @@ une demande sans rien installer.
 
 Swagger affiche aussi une commande `curl` qui contient la clé : ne pas la copier
 dans un document ou un message.
+
+### Collaborateur déjà enregistré : par son identifiant
+
+Quand le collaborateur figure déjà dans la base, son identifiant `id_employee`
+suffit : l'API lit elle-même ses 26 informations.
+
+| N° | Action | Résultat attendu |
+| --- | --- | --- |
+| 1 | Ouvrir `POST /predict/{id_employee}`, puis cliquer sur « Try it out » | Le champ `id_employee` devient modifiable |
+| 2 | Saisir l'identifiant, par exemple `1` | |
+| 3 | Cliquer sur « Execute » | La même réponse que `POST /predict` pour ce collaborateur, avec le code 200 ; 404 si l'identifiant est inconnu |
+
+Les collaborateurs enregistrés ont servi à construire le modèle : il les a déjà
+vus, et sa prédiction y est plus fiable qu'elle ne le serait pour un nouveau
+collaborateur. Cette route sert à la démonstration et au contrôle.
 
 ## Les 26 informations à fournir
 
@@ -217,6 +232,7 @@ Pour lire les noms des facteurs :
 | Code | Signification | Que faire |
 | --- | --- | --- |
 | 401 | Clé absente, inconnue ou désactivée | Vérifier la clé saisie dans « Authorize » ; sinon, demander une nouvelle clé |
+| 404 | Identifiant inconnu (`POST /predict/{id_employee}`) | Vérifier l'identifiant ; sinon, envoyer les 26 informations à `POST /predict` |
 | 422 | Une ou plusieurs informations sont refusées | Corriger chaque champ listé, puis renvoyer la demande |
 | 500 | La base a refusé d'enregistrer la demande | Prévenir l'administrateur |
 | 503 | La base de données est injoignable | Réessayer plus tard ; prévenir l'administrateur si cela dure |
@@ -238,8 +254,8 @@ Une erreur 422 liste chaque champ refusé, avec la raison :
 }
 ```
 
-En cas d'erreur, aucune prédiction n'est renvoyée. Une demande refusée (401 ou
-422) n'est pas enregistrée.
+En cas d'erreur, aucune prédiction n'est renvoyée. Une demande refusée (401, 404
+ou 422) n'est pas enregistrée.
 
 ## Appeler l'API depuis un programme
 
@@ -267,6 +283,12 @@ $reponse.facteurs | Format-Table variable, impact_points, effet
 
 ```bash
 curl -X POST http://localhost:8000/predict -H "X-API-Key: $CLE_API" -H "Content-Type: application/json" -d @docs/exemples/collaborateur_avec_alerte.json
+```
+
+Pour un collaborateur déjà enregistré, par son identifiant :
+
+```bash
+curl -X POST http://localhost:8000/predict/1 -H "X-API-Key: $CLE_API"
 ```
 
 ### Python
