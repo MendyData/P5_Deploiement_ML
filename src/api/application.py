@@ -22,6 +22,7 @@ from src.api.documentation import (
 )
 from src.api.erreurs import refuser_donnees_invalides
 from src.api.securite import utilisateur_courant
+from src.bdd.attente import AttenteBase
 from src.bdd.lecture import lire_collaborateur
 from src.bdd.modeles import Utilisateur
 from src.bdd.session import creer_moteur, obtenir_session
@@ -41,10 +42,13 @@ journal = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def cycle_de_vie(application: FastAPI) -> AsyncIterator[None]:
-    """Charge le modèle et prépare l'accès à la base, une seule fois.
+    """Charge le modèle, puis attend la base, une seule fois, avant toute requête.
 
-    Si l'artefact est invalide, l'erreur arrête le démarrage : l'API ne répond
-    jamais avec un modèle non vérifié.
+    Uvicorn n'accepte aucune requête tant que ce bloc n'a pas atteint yield.
+    Si l'artefact est invalide, ou si la base ne répond pas après le nombre
+    d'essais prévu, l'erreur arrête le démarrage : l'API ne répond jamais avec
+    un modèle non vérifié, ni sans base pour tracer ses prédictions. Une panne
+    de la base survenue plus tard ne l'arrête pas : elle répond alors 503.
 
     Args:
         application: Application qui garde le service et le moteur de la base.
@@ -57,9 +61,16 @@ async def cycle_de_vie(application: FastAPI) -> AsyncIterator[None]:
         level=parametres.log_level,
         format="%(asctime)s %(levelname)s %(name)s : %(message)s",
     )
+    # Le modèle d'abord : un artefact invalide se voit tout de suite, sans
+    # attendre la base pendant plusieurs secondes.
     application.state.service = ServicePrediction(PredicteurAttrition())
     # L'API se connecte avec son propre rôle, aux droits limités.
     application.state.moteur = creer_moteur(parametres.url_api)
+    AttenteBase(
+        moteur=application.state.moteur,
+        tentatives=parametres.postgres_tentatives,
+        pause=parametres.postgres_pause,
+    ).attendre()
     yield
     application.state.moteur.dispose()
 
