@@ -146,15 +146,16 @@ uv run ruff format --check .
 
 | Tests | Ce qui est vérifié |
 | --- | --- |
-| `tests/unitaires/` | Configuration, paramètres, features métier, pipeline, entraînement, schémas, explication du score, documentation de l'API |
+| `tests/unitaires/` | Configuration, paramètres, attente de la base, features métier, pipeline, entraînement, schémas, explication du score, documentation de l'API |
 | `tests/fonctionnels/test_non_regression.py` | Le pipeline redonne les scores et les métriques du projet 4 sur les 294 collaborateurs du jeu de test |
 | `tests/fonctionnels/test_predicteur.py` | Artefact vérifié avant chargement, prédiction |
 | `tests/fonctionnels/test_api.py` | Routes de l'API, en JSON et par identifiant : 200, 401, 404, 422, 500, 503, traces enregistrées, Swagger |
+| `tests/fonctionnels/test_demarrage.py` | L'API refuse de démarrer, avec un message explicite, si la base reste injoignable |
 | `tests/fonctionnels/test_bdd.py` | Création de la base, insertion du jeu de données, clients de l'API |
 | `tests/fonctionnels/test_integrite_bdd.py` | Types, valeurs absentes, contraintes, cohérence métier, clés, insertion, suppression, droits du rôle de l'API |
 | `tests/fonctionnels/test_parcours_complet.py` | Un client envoie les exemples fournis, ses traces sont relues, puis il est désactivé |
 
-- 230 tests : 221 rapides et 9 marqués `lent`.
+- 238 tests : 229 rapides et 9 marqués `lent`.
 - Couverture : 100 % du code de `src`, branches comprises. Le seuil imposé est de
   80 % (`fail_under` dans `pyproject.toml`) : en dessous, la commande échoue, et la
   CI avec elle. Le rapport est dans
@@ -174,6 +175,11 @@ docker compose up -d db
 uv run python scripts/creer_base.py
 uv run uvicorn src.api.application:app --reload
 ```
+
+Au démarrage, l'API attend la base : jusqu'à 10 essais de connexion espacés de
+2 secondes, réglables par `POSTGRES_TENTATIVES` et `POSTGRES_PAUSE`. Si la base
+reste injoignable, elle s'arrête avec un message explicite au lieu de démarrer
+sans pouvoir tracer ses prédictions.
 
 La base doit être démarrée et initialisée : l'API enregistre chaque demande avant
 de calculer. La documentation interactive (Swagger) est sur
@@ -453,6 +459,7 @@ Une seule commande, trois services lancés dans l'ordre :
 | Clé d'API, empreinte SHA-256 | Clé tirée au hasard, rien en clair, adapté à un appel entre applications | Mot de passe et jeton JWT |
 | PostgreSQL, deux rôles | Contraintes fortes ; l'API ne peut ni modifier ni supprimer | SQLite, sans rôles |
 | Demande enregistrée avant le calcul | Aucune prédiction sans trace ; 503 si la base ne répond pas | Journal dans un fichier |
+| Attente bornée de la base au démarrage | 10 essais espacés de 2 s, puis arrêt explicite : l'API ne démarre jamais sans sa base | Boucle `while True`, sans fin, que Ctrl+C n'interrompt pas |
 | Trois branches et GitHub Actions | Chaque version passe par le test avant la production | Déploiement à la main |
 | Docker Compose | Une commande, la même installation partout | Installation manuelle de PostgreSQL et de Python |
 

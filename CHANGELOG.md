@@ -7,6 +7,15 @@ version 1.0.0 de la clôture.
 
 ## [Non publié]
 
+### Ajouté
+
+- L'API attend la base au démarrage : jusqu'à 10 essais de connexion espacés de
+  2 secondes, réglables par `POSTGRES_TENTATIVES` et `POSTGRES_PAUSE`. Si la base
+  reste injoignable, elle s'arrête avec un message explicite. Une panne survenue
+  après le démarrage donne toujours une réponse 503.
+- Tests de l'attente (`tests/unitaires/test_attente.py`) et du démarrage sans base
+  (`tests/fonctionnels/test_demarrage.py`).
+
 ## [1.2.0] - 2026-11-23
 
 ### Ajouté
