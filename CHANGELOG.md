@@ -7,6 +7,8 @@ version 1.0.0 de la clôture.
 
 ## [Non publié]
 
+## [1.3.0] - 2026-11-25
+
 ### Ajouté
 
 - L'API attend la base au démarrage : jusqu'à 10 essais de connexion espacés de
