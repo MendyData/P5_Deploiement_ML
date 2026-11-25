@@ -7,6 +7,7 @@ de développement. Aucune valeur sensible n'est écrite dans le code.
 from functools import lru_cache
 from typing import Literal
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import URL
 
@@ -32,6 +33,9 @@ class Parametres(BaseSettings):
         postgres_password: Mot de passe du rôle propriétaire.
         postgres_api_user: Rôle de l'API, aux droits limités.
         postgres_api_password: Mot de passe du rôle de l'API.
+        postgres_tentatives: Nombre maximal d'essais de connexion à la base au
+            démarrage de l'API, au moins un.
+        postgres_pause: Pause, en secondes, entre deux essais de connexion.
     """
 
     model_config = SettingsConfigDict(
@@ -55,6 +59,12 @@ class Parametres(BaseSettings):
     postgres_password: str = ""
     postgres_api_user: str = "api"
     postgres_api_password: str = ""
+    # Attente de la base au démarrage de l'API : 10 essais espacés de 2 secondes
+    # couvrent le premier lancement du conteneur PostgreSQL, qui initialise ses
+    # fichiers puis redémarre. Les bornes refusent un réglage qui supprimerait
+    # l'essai (0) ou une pause négative, que time.sleep rejetterait.
+    postgres_tentatives: int = Field(default=10, ge=1)
+    postgres_pause: float = Field(default=2.0, ge=0)
 
     def _url(self, role: str, mot_de_passe: str) -> URL:
         """Construit l'adresse de la base pour un rôle donné."""
