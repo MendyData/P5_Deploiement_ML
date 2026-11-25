@@ -11,6 +11,8 @@ def environnement_vide(monkeypatch):
     """Retire les variables du poste ou de la CI : chaque test part de zéro."""
     monkeypatch.delenv("APP_ENV", raising=False)
     monkeypatch.delenv("LOG_LEVEL", raising=False)
+    monkeypatch.delenv("POSTGRES_TENTATIVES", raising=False)
+    monkeypatch.delenv("POSTGRES_PAUSE", raising=False)
 
 
 @pytest.fixture
@@ -28,6 +30,8 @@ def test_valeurs_par_defaut_sans_variable_ni_fichier():
 
     assert parametres.app_env == "development"
     assert parametres.log_level == "INFO"
+    assert parametres.postgres_tentatives == 10
+    assert parametres.postgres_pause == 2.0
 
 
 @pytest.mark.parametrize("environnement", ["development", "test", "production"])
@@ -56,6 +60,16 @@ def test_variable_d_environnement_prioritaire_sur_le_fichier_env(
     ("variable", "valeur"), [("APP_ENV", "prod"), ("LOG_LEVEL", "VERBEUX")]
 )
 def test_valeur_hors_liste_refusee(monkeypatch, variable, valeur):
+    monkeypatch.setenv(variable, valeur)
+
+    with pytest.raises(ValidationError):
+        Parametres(_env_file=None)
+
+
+@pytest.mark.parametrize(
+    ("variable", "valeur"), [("POSTGRES_TENTATIVES", "0"), ("POSTGRES_PAUSE", "-1")]
+)
+def test_attente_de_la_base_hors_bornes_refusee(monkeypatch, variable, valeur):
     monkeypatch.setenv(variable, valeur)
 
     with pytest.raises(ValidationError):
